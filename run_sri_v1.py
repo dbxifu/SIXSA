@@ -136,8 +136,8 @@ if __name__ == '__main__' :
 
     os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-
-    with open('sri_config.yml' , 'r') as config_file :
+    path_yml_file="YML_INPUT_FILES/"
+    with open(path_yml_file+'sri_config.yml' , 'r') as config_file :
         config = yaml.safe_load(config_file)
 
     path_pha = config['path_pha']
@@ -159,6 +159,8 @@ if __name__ == '__main__' :
     number_of_simulations_for_test_set = config['number_of_simulations_for_test_set']
     n_posterior_samples = config['n_posterior_samples']
     root_output_pdf_filename = config['root_output_pdf_filename']
+    path_pdf_files = config["path_pdf_files"]
+
 
     # Create a list of tuples containing variable name and value pairs
     table_data = [(key , value) for key , value in config.items( )]
@@ -297,7 +299,7 @@ if __name__ == '__main__' :
 
     c = ChainConsumer( )
     c.set_plot_config(PlotConfig(usetex = True , serif = True , label_font_size = 18 , tick_font_size = 14))
-    pdf_filename = root_output_pdf_filename + "prior_and_restricted_prior_comparison.pdf"
+    pdf_filename = path_pdf_files+root_output_pdf_filename + "prior_and_restricted_prior_comparison.pdf"
     pdf = matplotlib.backends.backend_pdf.PdfPages(pdf_filename)
     c.add_chain(Chain(samples = df_theta_from_restricted_prior ,
                       name = f"Restricted prior ({num_sim_for_cmin_cmax_restrictor:d} x {num_rounds_for_cmin_cmax_restrictor:d})" ,
@@ -443,7 +445,7 @@ if __name__ == '__main__' :
     #
     c = ChainConsumer( )
     c.set_plot_config(PlotConfig(usetex = True , serif = True , label_font_size = 18 , tick_font_size = 14))
-    pdf_filename = root_output_pdf_filename + "posteriors_at_reference_spectrum.pdf"
+    pdf_filename = path_pdf_files+root_output_pdf_filename + "posteriors_at_reference_spectrum.pdf"
     pdf = matplotlib.backends.backend_pdf.PdfPages(pdf_filename)
     c.add_chain(Chain(samples = df4cc , name = f"Single Round Inference {number_of_simulations_for_train_set:d})" ,
                       color = "blue" , bar_shade = True))
@@ -462,7 +464,7 @@ if __name__ == '__main__' :
     # Plot the folded spectrum and the 68% percentile from the posterior samples at x_obs
     #
 
-    pdf_filename = root_output_pdf_filename + "reference_spectrum_and_folded_model.pdf"
+    pdf_filename = path_pdf_files+root_output_pdf_filename + "reference_spectrum_and_folded_model.pdf"
     pdf = matplotlib.backends.backend_pdf.PdfPages(pdf_filename)
 
     fig , ax = plt.subplots(2 , 1 , figsize = (8 , 10) , sharex = True , height_ratios = [0.8 , 0.2])
@@ -524,7 +526,7 @@ if __name__ == '__main__' :
             posterior.sample((n_posterior_samples ,) , x = torch.tensor(np.array(x_t))))
     end_time = time.perf_counter( )
     duration_posterior_sample_generation_at_x_test = end_time - start_time
-    pdf_filename = root_output_pdf_filename + "parameter_in_out_at_test_set.pdf"
+    pdf_filename = path_pdf_files+root_output_pdf_filename + "parameter_in_out_at_test_set.pdf"
     plot_theta_in_theta_out(theta_test , posterior_samples_at_x_test , free_parameter_names_for_plots_transformed , pdf_filename)
 
     # Create a list of tuples containing variable name and value pairs

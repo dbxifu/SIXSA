@@ -1,5 +1,6 @@
 # Single round inference YAML configuration file - Based on Table 1 of Barret & Dupourqué (2024, A&A)
-path_pha: "Reference_spectra/"
+path_pha: "SIXSA_REFERENCE_SPECTRA/"
+path_pdf_files : "SIXSA_OUTPUTS/"
 filter_pha : "Reference_pha_tbabs_powerlaw_20000counts_groupconstant_5.pha"
 root_output_pdf_filename : "SRI_spectrum_20000_"
 energy_range : [0.3,10.] # energy range for the fit
