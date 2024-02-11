@@ -136,7 +136,7 @@ if __name__ == '__main__' :
 
     os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-    path_yml_file="YML_INPUT_FILES/"
+    path_yml_file="SIXA_YML_INPUT_FILES/"
     with open(path_yml_file+'sri_config.yml' , 'r') as config_file :
         config = yaml.safe_load(config_file)
 
@@ -160,6 +160,11 @@ if __name__ == '__main__' :
     n_posterior_samples = config['n_posterior_samples']
     root_output_pdf_filename = config['root_output_pdf_filename']
     path_pdf_files = config["path_pdf_files"]
+    if not os.path.exists(path_pdf_files):
+        os.makedirs(path_pdf_files)
+        print(f"Directory '{path_pdf_files}' created.")
+    else:
+        print(f"Directory '{path_pdf_files}' already exists.")
 
 
     # Create a list of tuples containing variable name and value pairs
