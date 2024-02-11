@@ -338,8 +338,8 @@ if __name__ == '__main__' :
     #
     # Let me perform a prior predictive check or restricted prior coverage check
     #
-
-    pdf = matplotlib.backends.backend_pdf.PdfPages("Prior_predictive_check.pdf")
+    pdf_filename=path_pdf_files+root_output_pdf_filename + "Prior_predictive_check.pdf"
+    pdf = matplotlib.backends.backend_pdf.PdfPages(pdf_filename)
     fig , ax = plt.subplots(1 , 1)
     plt.step(e_min_folded , x_obs , where = "post" , color = "red" , linewidth = 2. , label = "Observed spectrum")
 
