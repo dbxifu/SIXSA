@@ -7,6 +7,7 @@
 # 6) Generate the posterior samples. At each step, some plotting is performed to check that everything goes well. More
 # information in Barret & Dupourqué (2024, A&A, in press, 10.48550/arXiv.2401.06061) To speed up the generation of
 # simulated spectra, we use the jaxspec software under development (Dupourqué et al. 2024).
+
 import matplotlib
 import numpyro
 import pandas as pd
