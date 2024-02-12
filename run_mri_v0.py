@@ -1,5 +1,5 @@
 #
-# This code shows how to perform single round inference for a spectrum contained in a reference pha file It reads the
+# This code shows how to perform multiple round inference for a spectrum contained in a reference pha file It reads the
 # pha file, as to derive the parameters required for generating the faked spectra, the integration time, the response
 # files, etc. You define a model simply, with the allowed range of parameters. For the inference to work, you need to
 # define a prior with a given structure. The code performs sequentially these functions: 1) Read the data,
@@ -7,7 +7,6 @@
 # 6) Generate the posterior samples. At each step, some plotting is performed to check that everything goes well. More
 # information in Barret & Dupourqué (2024, A&A, in press, 10.48550/arXiv.2401.06061) To speed up the generation of
 # simulated spectra, we use the jaxspec software under development (Dupourqué et al. 2024).
-
 import matplotlib
 import numpyro
 import pandas as pd
@@ -27,6 +26,7 @@ import torch
 from sbi.utils.user_input_checks_utils import ScipyPytorchWrapper
 from scipy.stats import loguniform
 from tabulate import tabulate
+from torch.distributions import ExpTransform , TransformedDistribution , Exponential , Uniform
 
 from utils import compute_cstat , plot_theta_in_theta_out
 
@@ -42,6 +42,7 @@ from jaxspec.data.util import fakeit_for_multiple_parameters
 from jaxspec.fit import BayesianModel
 from jaxspec.model.abc import SpectralModel
 
+import torch.distributions as dist
 
 def generate_function_for_cmin_cmax_restrictor( cmin = 2000. , cmax = 5000. ) :
     def get_good_x( x ) :
@@ -135,8 +136,9 @@ if __name__ == '__main__' :
 
     os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
     path_yml_file="SIXA_YML_INPUT_FILES/"
-    with open(path_yml_file+'sri_config.yml' , 'r') as config_file :
+    with open(path_yml_file+'mri_config.yml' , 'r') as config_file :
         config = yaml.safe_load(config_file)
 
     path_pha = config['path_pha']
@@ -155,7 +157,7 @@ if __name__ == '__main__' :
     cmax_for_cmin_cmax_restrictor = config['cmax_for_cmin_cmax_restrictor']
     fraction_of_valid_simulations_to_stop_restricted_prior=config['fraction_of_valid_simulations_to_stop_restricted_prior']
     number_of_simulations_for_train_set = config['number_of_simulations_for_train_set']
-    number_of_simulations_for_test_set = config['number_of_simulations_for_test_set']
+    number_of_rounds = config['number_of_rounds']
     n_posterior_samples = config['n_posterior_samples']
     root_output_pdf_filename = config['root_output_pdf_filename']
     path_pdf_files = config["path_pdf_files"]
@@ -164,7 +166,6 @@ if __name__ == '__main__' :
         print(f"Directory '{path_pdf_files}' created.")
     else:
         print(f"Directory '{path_pdf_files}' already exists.")
-
 
     # Create a list of tuples containing variable name and value pairs
     table_data = [(key , value) for key , value in config.items( )]
@@ -303,7 +304,7 @@ if __name__ == '__main__' :
 
     c = ChainConsumer( )
     c.set_plot_config(PlotConfig(usetex = True , serif = True , label_font_size = 18 , tick_font_size = 14))
-    pdf_filename = path_pdf_files+root_output_pdf_filename + "prior_and_restricted_prior_comparison.pdf"
+    pdf_filename = root_output_pdf_filename + "prior_and_restricted_prior_comparison.pdf"
     pdf = matplotlib.backends.backend_pdf.PdfPages(pdf_filename)
     c.add_chain(Chain(samples = df_theta_from_restricted_prior ,
                       name = f"Restricted prior ({num_sim_for_cmin_cmax_restrictor:d} x {num_rounds_for_cmin_cmax_restrictor:d})" ,
@@ -323,27 +324,22 @@ if __name__ == '__main__' :
     # Now I am going to run the inference
     #
     theta_train = cmin_cmax_restrictor[-1].sample((number_of_simulations_for_train_set ,))
-    theta_test = cmin_cmax_restrictor[-1].sample((number_of_simulations_for_test_set ,))
-
     print(f"Generating the simulations that will be used for the inference")
     start_time = time.perf_counter( )
     x_train = compute_x_sim(jaxspec_model_expression , parameter_states , theta_train , pha_filename ,
                             energy_min , energy_max ,
                             free_parameter_prior_types , parameter_lower_bounds , apply_stat = True , verbose = False)
-    x_test = compute_x_sim(jaxspec_model_expression , parameter_states , theta_test , pha_filename ,
-                           energy_min , energy_max ,
-                           free_parameter_prior_types , parameter_lower_bounds , apply_stat = True , verbose = False)
     end_time = time.perf_counter( )
     print(
-        f'It took {end_time - start_time: 0.2f} second(s) to complete {number_of_simulations_for_train_set + number_of_simulations_for_test_set:d} '
+        f'It took {end_time - start_time: 0.2f} second(s) to complete {number_of_simulations_for_train_set:d} '
         f'simulations to be used for the inference ')
     duration_generation_theta_x = end_time - start_time
 
     #
     # Let me perform a prior predictive check or restricted prior coverage check
     #
-    pdf_filename=path_pdf_files+root_output_pdf_filename + "Prior_predictive_check.pdf"
-    pdf = matplotlib.backends.backend_pdf.PdfPages(pdf_filename)
+
+    pdf = matplotlib.backends.backend_pdf.PdfPages("Prior_predictive_check.pdf")
     fig , ax = plt.subplots(1 , 1)
     plt.step(e_min_folded , x_obs , where = "post" , color = "red" , linewidth = 2. , label = "Observed spectrum")
 
@@ -376,55 +372,77 @@ if __name__ == '__main__' :
     matplotlib.pyplot.close( )
     pdf.close( )
 
-    # We are ready for the training - This is the heart of the code (straight from the sbi python package)
+    #
+    # This is where I run multiple round inference
 
-    proposal = prior
+    multiple_round_inference_proposal = prior
     inference = SNPE(prior = prior)
 
-    start_time = time.perf_counter( )
-    density_estimator = inference.append_simulations(theta_train ,
-                                                     torch.tensor(np.array(x_train).astype(np.float32)) ,
-                                                     proposal = proposal).train( )
-    posterior = inference.build_posterior(density_estimator)
-    end_time = time.perf_counter( )
-    duration_inference = end_time - start_time
-    print(f'It took {duration_inference: 0.2f} second(s) to run the inference')
+    duration_multiple_round_inference = 0.
+    for i_n_r in range(number_of_rounds) :
+        if i_n_r == 0 :
+            print(f"x_train and theta_train have already been generated above !")
+        else :
+            theta_train = multiple_round_inference_proposal.sample((number_of_simulations_for_train_set ,))
+            print(f"Generating the simulations that will be used for the inference at round {i_n_r+1}")
+            start_time = time.perf_counter( )
+            x_train = compute_x_sim(jaxspec_model_expression , parameter_states , theta_train , pha_filename ,
+                                    energy_min , energy_max ,
+                                    free_parameter_prior_types , parameter_lower_bounds , apply_stat = True ,
+                                    verbose = False)
+            end_time = time.perf_counter( )
+            print(f'It took {end_time - start_time: 0.2f} second(s) to complete {number_of_simulations_for_train_set :d} '
+                f'simulations to be used for the inference ')
+            duration_generation_theta_x+=end_time-start_time
+        start_time = time.perf_counter( )
+        density_estimator = inference.append_simulations(theta_train ,
+                                                         torch.tensor(np.array(x_train).astype(np.float32)) ,
+                                                         proposal = multiple_round_inference_proposal).train( )
+        posterior = inference.build_posterior(density_estimator)
+        end_time = time.perf_counter( )
+        print(f'It took {end_time - start_time: 0.2f} second(s) to run the inference at round {i_n_r + 1:d}')
+        duration_multiple_round_inference+=end_time-start_time
 
-    #
-    # Now let us generate the poosterior samples at x_obs
-    #
-    posterior_samples = posterior.sample((n_posterior_samples ,) ,
-                                         x = torch.as_tensor(np.array(x_obs)))
+        multiple_round_inference_proposal = posterior.set_default_x(x_obs)
 
-    median = np.median(posterior_samples , axis = 0)
-    lower , upper = np.percentile(posterior_samples , (16 , 84) , axis = 0)
+        #
+        # Now let us generate the poosterior samples at x_obs
+        #
 
-    # Find the maximum length of the labels for formatting
-    max_label_length = max(len(label) for label in free_parameter_names_for_plots_transformed)
-    max_widths = [max(len(label) , len(f"{med:.2f}") , len(f"{low:.2f}") , len(f"{up:.2f}")) for label , med , low , up
-                  in zip(free_parameter_names_for_plots_transformed , median , lower , upper)]
+        posterior_samples = posterior.sample((n_posterior_samples ,) ,
+                                             x = torch.as_tensor(np.array(x_obs)))
 
-    # Improved print statement with aligned values
-    for label , med , low , up , width in zip(free_parameter_names_for_plots_transformed , median , lower , upper , max_widths) :
-        print(f"{label.ljust(max_label_length)}: Median={med:.2f}".ljust(width + 10) ,
-              f"Lower Percentile (16%)={low:.2f}".ljust(width + 10) , f"Upper Percentile (84%)={up:.2f}")
-    input("This is your best fit - type enter to continue ")
+        median = np.median(posterior_samples , axis = 0)
+        lower , upper = np.percentile(posterior_samples , (16 , 84) , axis = 0)
 
-    #
-    # Now computing the best fit model (setting apply_stat=False)
-    #
-    x_from_median = compute_x_sim(jaxspec_model_expression , parameter_states , torch.tensor([median]) ,
-                                  pha_filename ,
-                                  energy_min , energy_max ,
-                                  free_parameter_prior_types , parameter_lower_bounds , apply_stat = False ,
-                                  verbose = True)
-    #
-    # Now computing the cstat of the best fit and its deviation against the expected value
-    # From Kaastra(2017) https://ui.adsabs.harvard.edu/abs/2017A%26A...605A..51K/abstract
-    #
-    cstat_median_posterior_sample , cstat_dev_median_posterior_sample = compute_cstat(x_obs , np.array(x_from_median) ,
-                                                                                      verbose = True)
+        # Find the maximum length of the labels for formatting
+        max_label_length = max(len(label) for label in free_parameter_names_for_plots_transformed)
+        max_widths = [max(len(label) , len(f"{med:.2f}") , len(f"{low:.2f}") , len(f"{up:.2f}")) for
+                      label , med , low , up
+                      in zip(free_parameter_names_for_plots_transformed , median , lower , upper)]
 
+        # Improved print statement with aligned values
+        for label , med , low , up , width in zip(free_parameter_names_for_plots_transformed , median , lower , upper ,
+                                                  max_widths) :
+            print(f"{label.ljust(max_label_length)}: Median={med:.2f}".ljust(width + 10) ,
+                  f"Lower Percentile (16%)={low:.2f}".ljust(width + 10) , f"Upper Percentile (84%)={up:.2f}")
+        input("This is your best fit - type enter to continue ")
+
+        #
+        # Now computing the best fit model (setting apply_stat=False)
+        #
+        x_from_median = compute_x_sim(jaxspec_model_expression , parameter_states , torch.tensor([median]) ,
+                                      pha_filename ,
+                                      energy_min , energy_max ,
+                                      free_parameter_prior_types , parameter_lower_bounds , apply_stat = False ,
+                                      verbose = True)
+        #
+        # Now computing the cstat of the best fit and its deviation against the expected value
+        # From Kaastra(2017) https://ui.adsabs.harvard.edu/abs/2017A%26A...605A..51K/abstract
+        #
+        cstat_median_posterior_sample , cstat_dev_median_posterior_sample = compute_cstat(x_obs ,
+                                                                                          np.array(x_from_median) ,
+                                                                                          verbose = True)
     #
     # Computing the residuals for the plot (assuming Gehrels errors)
     #
@@ -449,7 +467,7 @@ if __name__ == '__main__' :
     #
     c = ChainConsumer( )
     c.set_plot_config(PlotConfig(usetex = True , serif = True , label_font_size = 18 , tick_font_size = 14))
-    pdf_filename = path_pdf_files+root_output_pdf_filename + "posteriors_at_reference_spectrum.pdf"
+    pdf_filename = root_output_pdf_filename + "posteriors_at_reference_spectrum.pdf"
     pdf = matplotlib.backends.backend_pdf.PdfPages(pdf_filename)
     c.add_chain(Chain(samples = df4cc , name = f"Single Round Inference {number_of_simulations_for_train_set:d})" ,
                       color = "blue" , bar_shade = True))
@@ -468,7 +486,7 @@ if __name__ == '__main__' :
     # Plot the folded spectrum and the 68% percentile from the posterior samples at x_obs
     #
 
-    pdf_filename = path_pdf_files+root_output_pdf_filename + "reference_spectrum_and_folded_model.pdf"
+    pdf_filename = root_output_pdf_filename + "reference_spectrum_and_folded_model.pdf"
     pdf = matplotlib.backends.backend_pdf.PdfPages(pdf_filename)
 
     fig , ax = plt.subplots(2 , 1 , figsize = (8 , 10) , sharex = True , height_ratios = [0.8 , 0.2])
@@ -523,16 +541,6 @@ if __name__ == '__main__' :
     # If you had multiple observations, you could generate the posterior samples at those x_obs
     #
 
-    posterior_samples_at_x_test = []
-    start_time = time.perf_counter( )
-    for x_t in x_test :
-        posterior_samples_at_x_test.append(
-            posterior.sample((n_posterior_samples ,) , x = torch.tensor(np.array(x_t))))
-    end_time = time.perf_counter( )
-    duration_posterior_sample_generation_at_x_test = end_time - start_time
-    pdf_filename = path_pdf_files+root_output_pdf_filename + "parameter_in_out_at_test_set.pdf"
-    plot_theta_in_theta_out(theta_test , posterior_samples_at_x_test , free_parameter_names_for_plots_transformed , pdf_filename)
-
     # Create a list of tuples containing variable name and value pairs
     table_data = [(key , value) for key , value in config.items( )]
 
@@ -542,8 +550,8 @@ if __name__ == '__main__' :
     table_data = [
         ("Restrictor " , f"{duration_cmin_cmax_restrictor:.2f}") ,
         (f"Generation of {number_of_simulations_for_train_set:d} x_train" , f"{duration_generation_theta_x:.2f}") ,
-        ("Inference " , f"{duration_inference:.2f}") ,
-        (f"Generation of {n_posterior_samples:d} posteriors at {number_of_simulations_for_test_set:d} x_test ", f"{duration_posterior_sample_generation_at_x_test:0.2f}")
+        ("Inference " , f"{duration_multiple_round_inference:.2f}") ,
+        (f"Generation of {n_posterior_samples:d} posteriors at {number_of_simulations_for_train_set:d} x_test ", f"{duration_generation_theta_x:0.2f}")
     ]
 
     # Create a frame around the table and print it
