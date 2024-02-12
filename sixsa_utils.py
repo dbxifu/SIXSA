@@ -17,7 +17,7 @@ from tabulate import tabulate
 def print_message(message):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     lines = message.split('\n')
-    formatted_message = f"[{timestamp}] [INFO] {lines[0]}"
+    formatted_message = f"[{timestamp}] [SIXSA] {lines[0]}"
     for line in lines[1:]:
         formatted_message += f"\n{' ' * (len(timestamp) + len('[INFO] ') + 2)}{line}"
     print(formatted_message)
