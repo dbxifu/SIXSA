@@ -471,7 +471,7 @@ if __name__ == '__main__' :
 
     table_data = [
         ("Restrictor " , f"{duration_cmin_cmax_restrictor:.2f}") ,
-        (f"Generation of {number_of_simulations_for_train_set:d} x_train" , f"{duration_generation_theta_x:.2f}") ,
+        (f"Generation of {number_of_simulations_for_train_set:d} x_train in {number_of_rounds:d} rounds" , f"{duration_generation_theta_x:.2f}") ,
         ("Inference " , f"{duration_multiple_round_inference:.2f}") ,
         (f"Generation of {n_posterior_samples:d} posteriors at {number_of_simulations_for_train_set:d} x_test ", f"{duration_generation_theta_x:0.2f}")
     ]

@@ -27,6 +27,8 @@ import torch
 from sbi.utils.user_input_checks_utils import ScipyPytorchWrapper
 from scipy.stats import loguniform
 from tabulate import tabulate
+from sbi.inference import SNPE
+from sbi.utils import RestrictionEstimator
 
 from sixsa_utils import compute_cstat , plot_theta_in_theta_out , generate_function_for_cmin_cmax_restrictor , \
     compute_x_sim , print_message , print_best_fit_parameters
@@ -182,8 +184,6 @@ if __name__ == '__main__' :
 
     start_time_to_get_the_restricted_prior = time.perf_counter( )
 
-    from sbi.inference import SNPE
-    from sbi.utils import RestrictionEstimator
 
     restriction_estimator = RestrictionEstimator(decision_criterion = select_good_x , prior = prior)
     cmin_cmax_restrictor = [prior]
