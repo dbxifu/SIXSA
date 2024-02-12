@@ -7,28 +7,21 @@
 # 6) Generate the posterior samples. At each step, some plotting is performed to check that everything goes well. More
 # information in Barret & Dupourqué (2024, A&A, in press, 10.48550/arXiv.2401.06061) To speed up the generation of
 # simulated spectra, we use the jaxspec software under development (Dupourqué et al. 2024).
+import time
+
 import matplotlib
+import numpy as np
 import numpyro
 import pandas as pd
-import sbi
-import scipy.stats
+import torch
 import yaml
 from chainconsumer import ChainConsumer , PlotConfig , Truth , Chain
 from matplotlib import pyplot as plt
 from sbi import utils
-from sbi.inference import SNPE
-from sbi.utils import RestrictionEstimator
-
-import time
-import jax
-import numpy as np
-import torch
-from sbi.utils.user_input_checks_utils import ScipyPytorchWrapper
-from scipy.stats import loguniform
 from tabulate import tabulate
-from torch.distributions import ExpTransform , TransformedDistribution , Exponential , Uniform
 
-from utils import compute_cstat , plot_theta_in_theta_out
+from sixsa_utils import compute_cstat , generate_function_for_cmin_cmax_restrictor , \
+    compute_x_sim , print_message
 
 numpyro.set_platform("cpu")
 numpyro.set_host_device_count(6)
@@ -38,85 +31,12 @@ import os
 import warnings
 
 from jaxspec.data import FoldingModel
-from jaxspec.data.util import fakeit_for_multiple_parameters
-from jaxspec.fit import BayesianModel
-from jaxspec.model.abc import SpectralModel
-
-import torch.distributions as dist
-
-def generate_function_for_cmin_cmax_restrictor( cmin = 2000. , cmax = 5000. ) :
-    def get_good_x( x ) :
-        x_array_to_select = []
-        n_bad = 0
-
-        for x_p in x :
-            good_or_bad_x = cmin <= np.sum(x_p.numpy( )) <= cmax
-            n_bad += int(not good_or_bad_x)
-            x_array_to_select.append(good_or_bad_x)
-        fraction_good = 100. * (1. - n_bad / len(x_array_to_select))
-        print(f"{cmin:.1f} {cmax:.1f} Number of simulations outside the range {n_bad:d} - "
-              f"Number of good simulations {len(x_array_to_select) - n_bad:d} - "
-              f"Good fraction = {fraction_good:.1f}%")
-
-        return torch.as_tensor(x_array_to_select)
-
-    return get_good_x
-
-
-def compute_x_sim( jaxspec_model_expression , parameter_states , thetas , pha_file , energy_min , energy_max ,
-                   free_parameter_prior_types , parameter_lower_bounds , apply_stat = True , verbose = False ) :
-
-    #
-    # Apply the transformation if needed
-    #
-    thetas = torch.as_tensor(np.where(np.array(free_parameter_prior_types) == "loguniform" , 10. ** thetas , thetas))
-
-    jaxspec_model = SpectralModel.from_string(jaxspec_model_expression)
-
-    parameter_values = []
-    index_theta = 0
-
-    for i_param , param_state in enumerate(parameter_states) :
-        if param_state == "free" :
-            parameter_values.append([thetas[j][index_theta] for j in range(len(thetas))])
-            index_theta += 1
-            if verbose :
-                print(f"{param_state.lower( )} Parameter #{i_param + 1} of {jaxspec_model.n_parameters} ")
-
-        elif param_state == "frozen" :
-            parameter_values.append([parameter_lower_bounds[i_param] for j in range(len(thetas))])
-            if verbose :
-                print(f"{param_state.lower( )} Parameter #{i_param + 1} of {jaxspec_model.n_parameters} ")
-
-    params_to_set = jaxspec_model.params
-    i_para = 0
-
-    for l , param_set in params_to_set.items( ) :
-        for param_name , _ in param_set.items( ) :
-            upd_dict = {param_name : np.array(parameter_values[i_para])}
-            param_set.update(upd_dict)
-            i_para += 1
-
-    folding_model = FoldingModel.from_pha_file(pha_file , energy_min , energy_max)
-
-    if len(thetas) > 1 :
-        print("Multiple thetas simulated -> parallelization with JAX required")
-        start_time = time.perf_counter( )
-        x = jax.jit(lambda s : fakeit_for_multiple_parameters(folding_model , jaxspec_model , s ,
-                                                              apply_stat = apply_stat))(params_to_set)
-
-        end_time = time.perf_counter( )
-        duration_time = end_time - start_time
-        print(f"Run duration_time {duration_time:.1f} seconds for {len(thetas)} samples")
-    #    return torch.as_tensor(np.array(x).astype(np.float32))
-    else :
-        print("One single theta simulated -> parallelization with JAX not required")
-        x = fakeit_for_multiple_parameters(folding_model , jaxspec_model , params_to_set , apply_stat = apply_stat)
-    return torch.as_tensor(np.array(x).astype(np.float32))
 
 warnings.filterwarnings("ignore")
 
 if __name__ == '__main__' :
+
+    print_message("Welcome in SIXSA (Simulation-based Inference for X-ray spectral Analysis\nWelcome on board !")
 
     plt.rcParams['axes.labelsize'] = 18
     plt.rcParams['xtick.labelsize'] = 14
@@ -304,7 +224,7 @@ if __name__ == '__main__' :
 
     c = ChainConsumer( )
     c.set_plot_config(PlotConfig(usetex = True , serif = True , label_font_size = 18 , tick_font_size = 14))
-    pdf_filename = root_output_pdf_filename + "prior_and_restricted_prior_comparison.pdf"
+    pdf_filename = path_pdf_files+root_output_pdf_filename + "prior_and_restricted_prior_comparison.pdf"
     pdf = matplotlib.backends.backend_pdf.PdfPages(pdf_filename)
     c.add_chain(Chain(samples = df_theta_from_restricted_prior ,
                       name = f"Restricted prior ({num_sim_for_cmin_cmax_restrictor:d} x {num_rounds_for_cmin_cmax_restrictor:d})" ,
@@ -426,7 +346,7 @@ if __name__ == '__main__' :
                                                   max_widths) :
             print(f"{label.ljust(max_label_length)}: Median={med:.2f}".ljust(width + 10) ,
                   f"Lower Percentile (16%)={low:.2f}".ljust(width + 10) , f"Upper Percentile (84%)={up:.2f}")
-        input("This is your best fit - type enter to continue ")
+        print_message("This is the best fit results")
 
         #
         # Now computing the best fit model (setting apply_stat=False)
@@ -467,7 +387,7 @@ if __name__ == '__main__' :
     #
     c = ChainConsumer( )
     c.set_plot_config(PlotConfig(usetex = True , serif = True , label_font_size = 18 , tick_font_size = 14))
-    pdf_filename = root_output_pdf_filename + "posteriors_at_reference_spectrum.pdf"
+    pdf_filename = path_pdf_files+root_output_pdf_filename + "posteriors_at_reference_spectrum.pdf"
     pdf = matplotlib.backends.backend_pdf.PdfPages(pdf_filename)
     c.add_chain(Chain(samples = df4cc , name = f"Single Round Inference {number_of_simulations_for_train_set:d})" ,
                       color = "blue" , bar_shade = True))
@@ -486,7 +406,7 @@ if __name__ == '__main__' :
     # Plot the folded spectrum and the 68% percentile from the posterior samples at x_obs
     #
 
-    pdf_filename = root_output_pdf_filename + "reference_spectrum_and_folded_model.pdf"
+    pdf_filename = path_pdf_files+root_output_pdf_filename + "reference_spectrum_and_folded_model.pdf"
     pdf = matplotlib.backends.backend_pdf.PdfPages(pdf_filename)
 
     fig , ax = plt.subplots(2 , 1 , figsize = (8 , 10) , sharex = True , height_ratios = [0.8 , 0.2])
@@ -557,4 +477,4 @@ if __name__ == '__main__' :
     # Create a frame around the table and print it
     print(tabulate(table_data , headers = ["Task Duration Summary" , "Seconds"] , tablefmt = "fancy_grid"))
 
-    print("We are done with running this very simple example ! I hope you enjoyed it !\nNow you can customize if for your application !")
+    print_message("We are done with running this very simple example ! \nWe hope you enjoyed it !\nNow you can customize if for your application !")

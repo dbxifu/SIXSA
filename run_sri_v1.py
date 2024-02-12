@@ -28,7 +28,8 @@ from sbi.utils.user_input_checks_utils import ScipyPytorchWrapper
 from scipy.stats import loguniform
 from tabulate import tabulate
 
-from utils import compute_cstat , plot_theta_in_theta_out
+from sixsa_utils import compute_cstat , plot_theta_in_theta_out , generate_function_for_cmin_cmax_restrictor , \
+    compute_x_sim , print_message
 
 numpyro.set_platform("cpu")
 numpyro.set_host_device_count(6)
@@ -42,80 +43,10 @@ from jaxspec.data.util import fakeit_for_multiple_parameters
 from jaxspec.fit import BayesianModel
 from jaxspec.model.abc import SpectralModel
 
-
-def generate_function_for_cmin_cmax_restrictor( cmin = 2000. , cmax = 5000. ) :
-    def get_good_x( x ) :
-        x_array_to_select = []
-        n_bad = 0
-
-        for x_p in x :
-            good_or_bad_x = cmin <= np.sum(x_p.numpy( )) <= cmax
-            n_bad += int(not good_or_bad_x)
-            x_array_to_select.append(good_or_bad_x)
-        fraction_good = 100. * (1. - n_bad / len(x_array_to_select))
-        print(f"{cmin:.1f} {cmax:.1f} Number of simulations outside the range {n_bad:d} - "
-              f"Number of good simulations {len(x_array_to_select) - n_bad:d} - "
-              f"Good fraction = {fraction_good:.1f}%")
-
-        return torch.as_tensor(x_array_to_select)
-
-    return get_good_x
-
-
-def compute_x_sim( jaxspec_model_expression , parameter_states , thetas , pha_file , energy_min , energy_max ,
-                   free_parameter_prior_types , parameter_lower_bounds , apply_stat = True , verbose = False ) :
-
-    #
-    # Apply the transformation if needed
-    #
-    thetas = torch.as_tensor(np.where(np.array(free_parameter_prior_types) == "loguniform" , 10. ** thetas , thetas))
-
-    jaxspec_model = SpectralModel.from_string(jaxspec_model_expression)
-
-    parameter_values = []
-    index_theta = 0
-
-    for i_param , param_state in enumerate(parameter_states) :
-        if param_state == "free" :
-            parameter_values.append([thetas[j][index_theta] for j in range(len(thetas))])
-            index_theta += 1
-            if verbose :
-                print(f"{param_state.lower( )} Parameter #{i_param + 1} of {jaxspec_model.n_parameters} ")
-
-        elif param_state == "frozen" :
-            parameter_values.append([parameter_lower_bounds[i_param] for j in range(len(thetas))])
-            if verbose :
-                print(f"{param_state.lower( )} Parameter #{i_param + 1} of {jaxspec_model.n_parameters} ")
-
-    params_to_set = jaxspec_model.params
-    i_para = 0
-
-    for l , param_set in params_to_set.items( ) :
-        for param_name , _ in param_set.items( ) :
-            upd_dict = {param_name : np.array(parameter_values[i_para])}
-            param_set.update(upd_dict)
-            i_para += 1
-
-    folding_model = FoldingModel.from_pha_file(pha_file , energy_min , energy_max)
-
-    if len(thetas) > 1 :
-        print("Multiple thetas simulated -> parallelization with JAX required")
-        start_time = time.perf_counter( )
-        x = jax.jit(lambda s : fakeit_for_multiple_parameters(folding_model , jaxspec_model , s ,
-                                                              apply_stat = apply_stat))(params_to_set)
-
-        end_time = time.perf_counter( )
-        duration_time = end_time - start_time
-        print(f"Run duration_time {duration_time:.1f} seconds for {len(thetas)} samples")
-    #    return torch.as_tensor(np.array(x).astype(np.float32))
-    else :
-        print("One single theta simulated -> parallelization with JAX not required")
-        x = fakeit_for_multiple_parameters(folding_model , jaxspec_model , params_to_set , apply_stat = apply_stat)
-    return torch.as_tensor(np.array(x).astype(np.float32))
-
 warnings.filterwarnings("ignore")
 
 if __name__ == '__main__' :
+    print_message("Welcome in SIXSA (Simulation-based Inference for X-ray spectral Analysis\nWelcome on board !")
 
     plt.rcParams['axes.labelsize'] = 18
     plt.rcParams['xtick.labelsize'] = 14
@@ -541,7 +472,7 @@ if __name__ == '__main__' :
 
     table_data = [
         ("Restrictor " , f"{duration_cmin_cmax_restrictor:.2f}") ,
-        (f"Generation of {number_of_simulations_for_train_set:d} x_train" , f"{duration_generation_theta_x:.2f}") ,
+        (f"Generation of {number_of_simulations_for_train_set+number_of_simulations_for_test_set:d} x_train and x_test" , f"{duration_generation_theta_x:.2f}") ,
         ("Inference " , f"{duration_inference:.2f}") ,
         (f"Generation of {n_posterior_samples:d} posteriors at {number_of_simulations_for_test_set:d} x_test ", f"{duration_posterior_sample_generation_at_x_test:0.2f}")
     ]
@@ -549,4 +480,4 @@ if __name__ == '__main__' :
     # Create a frame around the table and print it
     print(tabulate(table_data , headers = ["Task Duration Summary" , "Seconds"] , tablefmt = "fancy_grid"))
 
-    print("We are done with running this very simple example ! I hope you enjoyed it !\nNow you can customize if for your application !")
+    print_message("We are done with running this very simple example ! \nwe hope you enjoyed it !\nNow you can customize if for your application !")
