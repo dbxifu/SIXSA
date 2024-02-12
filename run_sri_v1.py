@@ -29,7 +29,7 @@ from scipy.stats import loguniform
 from tabulate import tabulate
 
 from sixsa_utils import compute_cstat , plot_theta_in_theta_out , generate_function_for_cmin_cmax_restrictor , \
-    compute_x_sim , print_message
+    compute_x_sim , print_message , print_best_fit_parameters
 
 numpyro.set_platform("cpu")
 numpyro.set_host_device_count(6)
@@ -356,6 +356,9 @@ if __name__ == '__main__' :
     cstat_median_posterior_sample , cstat_dev_median_posterior_sample = compute_cstat(x_obs , np.array(x_from_median) ,
                                                                                       verbose = True)
 
+    print_best_fit_parameters(free_parameter_names_for_plots , free_parameter_prior_types , median , lower , upper ,
+                              cstat_median_posterior_sample , cstat_dev_median_posterior_sample)
+
     #
     # Computing the residuals for the plot (assuming Gehrels errors)
     #
@@ -479,5 +482,7 @@ if __name__ == '__main__' :
 
     # Create a frame around the table and print it
     print(tabulate(table_data , headers = ["Task Duration Summary" , "Seconds"] , tablefmt = "fancy_grid"))
+    print_best_fit_parameters(free_parameter_names_for_plots , free_parameter_prior_types , median , lower , upper ,
+                              cstat_median_posterior_sample , cstat_dev_median_posterior_sample)
 
     print_message("We are done with running this very simple example ! \nwe hope you enjoyed it !\nNow you can customize if for your application !")

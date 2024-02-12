@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from pip._internal.utils.misc import tabulate
 from sbi import utils as utils
 from jaxspec.data.util import fakeit_for_multiple_parameters
 from jaxspec.model.abc import SpectralModel
@@ -23,6 +24,23 @@ def print_message(message):
     for line in lines[1:]:
         formatted_message += f"\n{' ' * (len(timestamp) + len('[INFO] ') + 2)}{line}"
     print(formatted_message)
+
+def print_best_fit_parameters(free_parameter_names,free_parameter_prior_types,median,lower,upper,cstat,cstat_dev):
+
+    # Apply transformation for "loguniform" prior types
+    median[free_parameter_prior_types == "loguniform"] = 10. ** median[free_parameter_prior_types == "loguniform"]
+    lower[free_parameter_prior_types == "loguniform"] = 10. ** lower[free_parameter_prior_types == "loguniform"]
+    upper[free_parameter_prior_types == "loguniform"] = 10. ** upper[free_parameter_prior_types == "loguniform"]
+
+    # Create a table using a loop
+    table_data = [("Parameter", "Best fit", "Negative error", "Positive error")]
+
+    for name , m , l , u in zip(free_parameter_names , median , lower , upper) :
+        table_data.append((name , m , f"-{m - l:0.3f}" , f"+{u - m:0.3f}"))
+
+    # Print the table
+    print(tabulate(table_data , headers = "Results" , tablefmt = "fancy_grid"))
+    print_message(f"Best fit c-stat={cstat:.3f}\nc-stat deviation-dev={cstat_dev:.3f}")
 
 def generate_function_for_cmin_cmax_restrictor( cmin = 2000. , cmax = 5000. ) :
     def get_good_x( x ) :
