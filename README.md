@@ -28,8 +28,9 @@ poetry install --no-root
 The demo scripts can be run to reproduce some figures from Barret & Dupourqué (2024). Be sure to run this in the `sixsa` environment
 
 ```
-python run_mri_v0.py
+python run_mri.py # will run multiple round inference on a spectrum of 2000 counts.
+python run_sri.py # will run single round inference on a spectrum of either 2000 or 20000 counts.
 ```
 In this first release, it is possible to run single round inference and multiple round inference on reference simulated pha files. 
 Only the restricted prior, based on the number of counts in the spectrum to lie within a range specified in the yml files is implemented.
-Output files are generated in PDF format. 
+Output files are generated in PDF format, as to evaluate the different steps of the processing. 
