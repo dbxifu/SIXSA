@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import statsmodels.api as sm
 import torch
-from jaxspec.data import FoldingModel
+from jaxspec.data import ObsConfiguration
 from jaxspec.data.util import fakeit_for_multiple_parameters
 from jaxspec.model.abc import SpectralModel
 from sklearn.linear_model import LinearRegression
@@ -16,17 +16,19 @@ from tabulate import tabulate
 # Utility to print messages to the terminal in some format
 def print_message(message):
     lines = message.split('\n')
-    formatted_message = '\n'.join("[SIXSA] " + line for line in lines)
+    formatted_message="\n================================================================================\n"
+    formatted_message+= '\n'.join("[SIXSA] " + line for line in lines)
+    formatted_message+="\n================================================================================\n"
     print(formatted_message)
 
 def welcome_message():
-    print_message('Welcome in SIXSA (Simulation-based Inference for X-ray Spectral Analyis)\n'
-                  'It works with us. Let us see how it does with you')
+    print_message('\n\n\nWelcome in SIXSA (Simulation-based Inference for X-ray Spectral Analyis)\n'
+                  'It works with us. Let us see how it does with you !\n\n\n')
 
 def goodbye_message():
-    print("Thank you for trying SIXSA (Simulation-based Inference for X-ray Spectral Analyis)."
+    print_message("\n\n\nThank you for trying SIXSA (Simulation-based Inference for X-ray Spectral Analyis)."
           "\nWe hope you enjoyed it.\nNow you can customize it for your application."
-          "\nKeep us posted. Thanks !")
+          "\nKeep us posted. Thanks !\n\n\n")
 # Utility to print the best bit parameters in a tabulated form.
 def print_best_fit_parameters(free_parameter_names,free_parameter_prior_types,median,lower,upper,cstat,cstat_dev):
 
@@ -43,8 +45,8 @@ def print_best_fit_parameters(free_parameter_names,free_parameter_prior_types,me
         table_data.append((name , f"{m:0.3f}" , f"-{m - l:0.3f}" , f"+{u - m:0.3f}"))
 
     # Print the table
-    print(tabulate(table_data , headers = ["Results"] , tablefmt = "fancy_grid"))
-    print_message(f"Best fit c-stat={cstat:.3f} - c-stat deviation={cstat_dev:.3f}")
+    print(tabulate(table_data, tablefmt = "fancy_grid"))
+    print_message(f"These are the best fit results\nBest fit c-stat={cstat:.3f} - c-stat deviation={cstat_dev:.3f}")
 
 #=======================================================================================================================
 # generate_function_for_cmin_cmax_restrictor: this is the function that is needed for the restricted prior, derived from
@@ -54,14 +56,10 @@ def print_best_fit_parameters(free_parameter_names,free_parameter_prior_types,me
 # ======================================================================================================================
 
 def generate_function_for_cmin_cmax_restrictor( cmin = 2000. , cmax = 5000. ) :
-    def get_good_x( x ) :
-        x_array_to_select = []
-        n_bad = 0
 
-        for x_p in x :
-            good_or_bad_x = cmin <= np.sum(x_p.numpy( )) <= cmax
-            n_bad += int(not good_or_bad_x)
-            x_array_to_select.append(good_or_bad_x)
+    def get_good_x( x ) :
+        x_array_to_select = [cmin <= np.sum(x_p.numpy( )) <= cmax for x_p in x]
+        n_bad = len(x) - sum(x_array_to_select)
         fraction_good = 100. * (1. - n_bad / len(x_array_to_select))
         print(f"{cmin:.1f} {cmax:.1f} Number of simulations outside the range {n_bad:d} - "
               f"Number of good simulations {len(x_array_to_select) - n_bad:d} - "
@@ -71,6 +69,24 @@ def generate_function_for_cmin_cmax_restrictor( cmin = 2000. , cmax = 5000. ) :
 
     return get_good_x
 
+
+# This function can be used to construct a restricted prior based on the simulated spectra providing the lowest cstat
+
+def generate_function_for_cstat_restrictor( x_obs = [] , good_fraction_in_percent = 25. ) :
+    def get_good_x( x ) :
+        cstat_array = np.array(
+            [compute_cstat(x_obs , x_p.numpy( ) , with_cstat_dev = False , verbose = False) for x_p in x])
+        cstat_array_sorted = np.sort(cstat_array)
+
+        index_corresponding_to_good_fraction = int(len(x) * good_fraction_in_percent / 100.)
+        cstat_thresh = cstat_array_sorted[index_corresponding_to_good_fraction]
+        print(f"cstat less than {cstat_thresh:0.1f} has {good_fraction_in_percent:0.1f}% of spectra at index "
+              f"{index_corresponding_to_good_fraction:d} - median {np.median(cstat_array):0.1f} - "
+              f"min {np.min(cstat_array):0.1f}")
+
+        return torch.as_tensor(cstat_array <= cstat_thresh)
+
+    return get_good_x
 #=======================================================================================================================
 # compute_x_sim: compute the simulated spectra with jaxspec fakeit like command.
 # It is therefore dependent on jaxspec, which currently has a limited number of models implemented.
@@ -112,7 +128,7 @@ def compute_x_sim( jaxspec_model_expression , parameter_states , thetas , pha_fi
             param_set.update(upd_dict)
             i_para += 1
 
-    folding_model = FoldingModel.from_pha_file(pha_file , energy_min , energy_max)
+    folding_model = ObsConfiguration.from_pha_file(pha_file , energy_min , energy_max)
 
     if len(thetas) > 1 :
         print("Multiple thetas simulated -> parallelization with JAX required")
@@ -130,7 +146,7 @@ def compute_x_sim( jaxspec_model_expression , parameter_states , thetas , pha_fi
     return torch.as_tensor(np.array(x).astype(np.float32))
 
 # This function computes the cstat, its expected value and variance.
-def compute_cstat( data_in: object , model_in: object , verbose: object = True ) -> object :
+def compute_cstat( data_in: object , model_in: object , with_cstat_dev=True, verbose: object = True ) -> object :
     from scipy.stats import norm
     import numpy
 
@@ -208,7 +224,10 @@ def compute_cstat( data_in: object , model_in: object , verbose: object = True )
                        f"with standard deviation {np.sqrt(cv_sum):0.1f} = {100. * norm.sf(np.abs((cstat - ce_sum) / np.sqrt(cv_sum))):0.1f}%"
                        f" - deviation ={(cstat - ce_sum) / np.sqrt(cv_sum):0.1f} sigma")
 
-    return cstat , (cstat - ce_sum) / np.sqrt(cv_sum)
+    if with_cstat_dev :
+        return cstat , (cstat - ce_sum) / np.sqrt(cv_sum)
+    else :
+        return cstat
 
 # This function plots the SIXSA inferred model parameters versus the input model parameters and compute some correlation
 # coefficient which should be closed to 1.
@@ -234,7 +253,6 @@ def plot_theta_in_theta_out( theta_test , posterior_samples_at_x_test , model_pa
         y_err = [1. / val[iplot] for val in median_error_array]
         xtp = np.array(xtp).reshape(-1 , 1);
         ytp = np.array(ytp).reshape(-1 , 1)
-        print(np.shape(xtp) , np.shape(ytp) , np.shape(y_err))
         reg = LinearRegression( ).fit(np.array(xtp) , np.array(ytp) , sample_weight = np.array(y_err))
         R_2 = reg.score(np.array(xtp) , np.array(ytp) , sample_weight = np.array(y_err))
         wls = sm.WLS(np.array(ytp) , np.array(xtp) , weights = np.array(y_err))

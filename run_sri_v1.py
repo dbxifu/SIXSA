@@ -7,7 +7,7 @@
 # 6) Generate the posterior samples. At each step, some plotting is performed to check that everything goes well. More
 # information in Barret & Dupourqué (2024, A&A, in press, 10.48550/arXiv.2401.06061) To speed up the generation of
 # simulated spectra, we use the jaxspec software under development (Dupourqué et al. 2024).
-
+import glob
 import time
 
 import matplotlib
@@ -24,7 +24,8 @@ from sbi.utils import RestrictionEstimator
 from tabulate import tabulate
 
 from sixsa_utils import compute_cstat , plot_theta_in_theta_out , generate_function_for_cmin_cmax_restrictor , \
-    compute_x_sim , print_message , print_best_fit_parameters , welcome_message , goodbye_message
+    compute_x_sim , print_message , print_best_fit_parameters , welcome_message , goodbye_message , \
+    robust_selection_from_menu
 
 numpyro.set_platform("cpu")
 numpyro.set_host_device_count(6)
@@ -33,7 +34,7 @@ numpyro.enable_x64( )
 import os
 import warnings
 
-from jaxspec.data import FoldingModel
+from jaxspec.data import ObsConfiguration
 
 warnings.filterwarnings("ignore")
 
@@ -59,7 +60,9 @@ if __name__ == '__main__' :
     os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
     path_yml_file="SIXA_YML_INPUT_FILES/"
-    with open(path_yml_file+'sri_config.yml' , 'r') as config_file :
+    yml_files=glob.glob(path_yml_file+"sri_config*.yml")
+    index_yml_file_selected=robust_selection_from_menu(yml_files)
+    with open(yml_files[index_yml_file_selected-1], 'r') as config_file :
         config = yaml.safe_load(config_file)
 
     path_pha = config['path_pha']
@@ -146,7 +149,7 @@ if __name__ == '__main__' :
     print(tabulate(table_data_free_parameters , headers = ["Variable" , "Value"] , tablefmt = "fancy_grid"))
 
     # Read the observed spectrum
-    obs = FoldingModel.from_pha_file(pha_filename , low_energy = energy_min , high_energy = energy_max)
+    obs = ObsConfiguration.from_pha_file(pha_filename , low_energy = energy_min , high_energy = energy_max)
     e_min_folded = obs.e_min_folded
     e_max_folded = obs.e_max_folded
 
@@ -263,8 +266,8 @@ if __name__ == '__main__' :
     #
     # Let me perform a prior predictive check or restricted prior coverage check
     #
-    pdf_filename=path_pdf_files+root_output_pdf_filename + "Prior_predictive_check.pdf"
-    pdf = matplotlib.backends.backend_pdf.PdfPages(pdf_filename)
+    pdf_filename=path_pdf_files+root_output_pdf_filename + "prior_predictive_check.pdf"
+    pdf =matplotlib.backends.backend_pdf.PdfPages(pdf_filename)
     fig , ax = plt.subplots(1 , 1)
     plt.step(e_min_folded , x_obs , where = "post" , color = "red" , linewidth = 2. , label = "Observed spectrum")
 
@@ -329,8 +332,6 @@ if __name__ == '__main__' :
     for label , med , low , up , width in zip(free_parameter_names_for_plots_transformed , median , lower , upper , max_widths) :
         print(f"{label.ljust(max_label_length)}: Median={med:.2f}".ljust(width + 10) ,
               f"Lower Percentile (16%)={low:.2f}".ljust(width + 10) , f"Upper Percentile (84%)={up:.2f}")
-    input("This is your best fit - type enter to continue ")
-
     #
     # Now computing the best fit model (setting apply_stat=False)
     #
@@ -379,7 +380,6 @@ if __name__ == '__main__' :
                       color = "blue" , bar_shade = True))
     truth_sri = dict(zip(df4cc.columns.values.tolist( ) ,
                          np.array(df4cc.median( ))))
-    print("truth_sri" , truth_sri)
     c.add_truth(Truth(location = truth_sri , color = "blue"))
     fig = c.plotter.plot(figsize = (8 , 10))
     fig.align_ylabels( )
