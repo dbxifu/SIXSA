@@ -8,30 +8,23 @@
 # information in Barret & Dupourqué (2024, A&A, in press, 10.48550/arXiv.2401.06061) To speed up the generation of
 # simulated spectra, we use the jaxspec software under development (Dupourqué et al. 2024).
 
+import time
+
 import matplotlib
+import numpy as np
 import numpyro
 import pandas as pd
-import sbi
-import scipy.stats
+import torch
 import yaml
 from chainconsumer import ChainConsumer , PlotConfig , Truth , Chain
 from matplotlib import pyplot as plt
 from sbi import utils
 from sbi.inference import SNPE
 from sbi.utils import RestrictionEstimator
-
-import time
-import jax
-import numpy as np
-import torch
-from sbi.utils.user_input_checks_utils import ScipyPytorchWrapper
-from scipy.stats import loguniform
 from tabulate import tabulate
-from sbi.inference import SNPE
-from sbi.utils import RestrictionEstimator
 
 from sixsa_utils import compute_cstat , plot_theta_in_theta_out , generate_function_for_cmin_cmax_restrictor , \
-    compute_x_sim , print_message , print_best_fit_parameters
+    compute_x_sim , print_message , print_best_fit_parameters , welcome_message , goodbye_message
 
 numpyro.set_platform("cpu")
 numpyro.set_host_device_count(6)
@@ -41,15 +34,12 @@ import os
 import warnings
 
 from jaxspec.data import FoldingModel
-from jaxspec.data.util import fakeit_for_multiple_parameters
-from jaxspec.fit import BayesianModel
-from jaxspec.model.abc import SpectralModel
 
 warnings.filterwarnings("ignore")
 
 if __name__ == '__main__' :
-    print_message("Welcome in SIXSA (Simulation-based Inference for X-ray spectral Analysis\nWelcome on board !")
 
+    welcome_message()
     plt.rcParams['axes.labelsize'] = 18
     plt.rcParams['xtick.labelsize'] = 14
     plt.rcParams['ytick.labelsize'] = 14
@@ -485,4 +475,4 @@ if __name__ == '__main__' :
     print_best_fit_parameters(free_parameter_names_for_plots , free_parameter_prior_types , median , lower , upper ,
                               cstat_median_posterior_sample , cstat_dev_median_posterior_sample)
 
-    print_message("We are done with running this very simple example ! \nwe hope you enjoyed it !\nNow you can customize if for your application !")
+    goodbye_message()

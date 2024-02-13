@@ -13,15 +13,21 @@ from jaxspec.model.abc import SpectralModel
 from sklearn.linear_model import LinearRegression
 from tabulate import tabulate
 
-
+# Utility to print messages to the terminal in some format
 def print_message(message):
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     lines = message.split('\n')
-    formatted_message = f"[{timestamp}] [SIXSA] {lines[0]}"
-    for line in lines[1:]:
-        formatted_message += f"\n{' ' * (len(timestamp) + len('[INFO] ') + 2)}{line}"
+    formatted_message = '\n'.join("[SIXSA] " + line for line in lines)
     print(formatted_message)
 
+def welcome_message():
+    print_message('Welcome in SIXSA (Simulation-based Inference for X-ray Spectral Analyis)\n'
+                  'It works with us. Let us see how it does with you')
+
+def goodbye_message():
+    print("Thank you for trying SIXSA (Simulation-based Inference for X-ray Spectral Analyis)."
+          "\nWe hope you enjoyed it.\nNow you can customize it for your application."
+          "\nKeep us posted. Thanks !")
+# Utility to print the best bit parameters in a tabulated form.
 def print_best_fit_parameters(free_parameter_names,free_parameter_prior_types,median,lower,upper,cstat,cstat_dev):
 
     # Apply transformation for "loguniform" prior types without copy
@@ -39,6 +45,13 @@ def print_best_fit_parameters(free_parameter_names,free_parameter_prior_types,me
     # Print the table
     print(tabulate(table_data , headers = ["Results"] , tablefmt = "fancy_grid"))
     print_message(f"Best fit c-stat={cstat:.3f} - c-stat deviation={cstat_dev:.3f}")
+
+#=======================================================================================================================
+# generate_function_for_cmin_cmax_restrictor: this is the function that is needed for the restricted prior, derived from
+# the condition that the spectra must have a number of counts within a specified range. Simulation falling outside the
+# range are considered invalid and the network gets trained to increase the number of valid simulations.
+# See sbi documentation for defining a restricted prior with a selection function.
+# ======================================================================================================================
 
 def generate_function_for_cmin_cmax_restrictor( cmin = 2000. , cmax = 5000. ) :
     def get_good_x( x ) :
@@ -58,7 +71,13 @@ def generate_function_for_cmin_cmax_restrictor( cmin = 2000. , cmax = 5000. ) :
 
     return get_good_x
 
-
+#=======================================================================================================================
+# compute_x_sim: compute the simulated spectra with jaxspec fakeit like command.
+# It is therefore dependent on jaxspec, which currently has a limited number of models implemented.
+# It is possible to generate simulated spectra with other software, such as XSPEC, as long as the output format
+# remains similar. The output format is an array of spectra in counts. jaxspec is really powerful in terms of speed.
+# More models will be implemented as time goes (see the jaxspec documentation for the synthax of the models).
+# ======================================================================================================================
 def compute_x_sim( jaxspec_model_expression , parameter_states , thetas , pha_file , energy_min , energy_max ,
                    free_parameter_prior_types , parameter_lower_bounds , apply_stat = True , verbose = False ) :
 
@@ -110,6 +129,7 @@ def compute_x_sim( jaxspec_model_expression , parameter_states , thetas , pha_fi
         x = fakeit_for_multiple_parameters(folding_model , jaxspec_model , params_to_set , apply_stat = apply_stat)
     return torch.as_tensor(np.array(x).astype(np.float32))
 
+# This function computes the cstat, its expected value and variance.
 def compute_cstat( data_in: object , model_in: object , verbose: object = True ) -> object :
     from scipy.stats import norm
     import numpy
@@ -190,6 +210,8 @@ def compute_cstat( data_in: object , model_in: object , verbose: object = True )
 
     return cstat , (cstat - ce_sum) / np.sqrt(cv_sum)
 
+# This function plots the SIXSA inferred model parameters versus the input model parameters and compute some correlation
+# coefficient which should be closed to 1.
 def plot_theta_in_theta_out( theta_test , posterior_samples_at_x_test , model_parameter_names , pdf_filename ) :
     pdf = matplotlib.backends.backend_pdf.PdfPages(pdf_filename)
     median_array = [];
@@ -217,19 +239,10 @@ def plot_theta_in_theta_out( theta_test , posterior_samples_at_x_test , model_pa
         R_2 = reg.score(np.array(xtp) , np.array(ytp) , sample_weight = np.array(y_err))
         wls = sm.WLS(np.array(ytp) , np.array(xtp) , weights = np.array(y_err))
         wls_result = wls.fit( )
-        print(wls_result.summary( ))
-        print(wls_result.params , R_2 , wls_result.conf_int(alpha = 0.1))
-        print(dir(wls_result))
         axs[iplot].margins(x = 0.1)
         axs[iplot].margins(y = 0.1)
-        local_label = model_parameter_names[iplot]
-        if model_parameter_names[iplot].lower( ).find("norm") >= 0 :
-            local_label = "Log(" + model_parameter_names[iplot] + ")"
-        else :
-            local_label = model_parameter_names[iplot]
-
-        axs[iplot].set_xlabel("SRI " + local_label + " in")
-        axs[iplot].set_ylabel("SRI " + local_label + " out")
+        axs[iplot].set_xlabel("SRI " + model_parameter_names[iplot] + " in")
+        axs[iplot].set_ylabel("SRI " + model_parameter_names[iplot] + " out")
         xtp = [xtp[iplot] for xtp in theta_test]
         ytp = [ytp[iplot] for ytp in median_array]
         axs[iplot].plot([np.min(xtp) , np.max(xtp)] ,
@@ -246,7 +259,7 @@ def plot_theta_in_theta_out( theta_test , posterior_samples_at_x_test , model_pa
     matplotlib.pyplot.close( )
     pdf.close( )
 
-
+# Utility to robustly select an option from a menu
 def robust_selection_from_menu( menu ) :
     while True :
 

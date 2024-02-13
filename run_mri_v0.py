@@ -21,7 +21,7 @@ from sbi import utils
 from tabulate import tabulate
 
 from sixsa_utils import compute_cstat , generate_function_for_cmin_cmax_restrictor , \
-    compute_x_sim , print_message , print_best_fit_parameters
+    compute_x_sim , print_message , print_best_fit_parameters , goodbye_message , welcome_message
 
 numpyro.set_platform("cpu")
 numpyro.set_host_device_count(6)
@@ -36,7 +36,7 @@ warnings.filterwarnings("ignore")
 
 if __name__ == '__main__' :
 
-    print_message("Welcome in SIXSA (Simulation-based Inference for X-ray spectral Analysis\nWelcome on board !")
+    welcome_message()
 
     plt.rcParams['axes.labelsize'] = 18
     plt.rcParams['xtick.labelsize'] = 14
@@ -482,4 +482,4 @@ if __name__ == '__main__' :
     print_best_fit_parameters(free_parameter_names_for_plots , free_parameter_prior_types , median , lower , upper ,
                               cstat_median_posterior_sample , cstat_dev_median_posterior_sample)
 
-    print_message("We are done with running this very simple example ! \nWe hope you enjoyed it !\nNow you can customize if for your application !")
+    goodbye_message()
