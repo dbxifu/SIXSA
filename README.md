@@ -1,2 +1,32 @@
 # SIXSA
-Simulation based Inference for X-ray Spectral Analysis
+Simulation based Inference for X-ray Spectral Analysis package from Barret & Dupourqué (2024). This repository contains example scripts for reproducing some of the results of the paper, and allows interested users to test this approach on their own data.
+
+# Install 
+We recommend the users to start from a fresh Python 3.10 [conda environment](https://conda.io/projects/conda/en/latest/user-guide/install/index.html). 
+
+```
+conda create -n sixsa python=3.10
+conda activate sixsa
+```
+
+Once the environment is set up, create a new directory and clone this GitHub repository.
+
+```
+git clone https://github.com/dbxifu/SIXSA
+cd sixsa
+```
+
+Now, you can install the required dependencies using `poetry`
+
+```
+pip install poetry
+poetry install --no-root
+```
+
+# Run the demo 
+
+The demo scripts can be run to reproduce some figures from Barret & Dupourqué (2024). Be sure to run this in the `sixsa` environment
+
+```
+python run_mri_v0.py
+```
