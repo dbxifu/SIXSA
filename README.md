@@ -30,3 +30,6 @@ The demo scripts can be run to reproduce some figures from Barret & Dupourqué (
 ```
 python run_mri_v0.py
 ```
+In this first release, it is possible to run single round inference and multiple round inference on reference simulated pha files. 
+Only the restricted prior, based on the number of counts in the spectrum to lie within a range specified in the yml files is implemented.
+Output files are generated in PDF format. 
