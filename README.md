@@ -25,7 +25,8 @@ poetry install --no-root
 
 # Run the demo 
 
-The demo scripts can be run to reproduce some figures from Barret & Dupourqué (2024). Be sure to run this in the `sixsa` environment
+The demo scripts can be run to reproduce the first figures from Barret & Dupourqué (2024, A&A), 
+to get a feel of the power of SBI-NPE. Be sure to run this in the `sixsa` environment
 
 ```
 python run_mri.py # will run multiple round inference on a spectrum of 2000 counts (one yml file provided).

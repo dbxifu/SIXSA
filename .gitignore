@@ -75,6 +75,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+OLD_CODES/
 
 # Translations
 *.mo
