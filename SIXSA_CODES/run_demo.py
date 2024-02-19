@@ -26,7 +26,7 @@ if __name__ == '__main__' :
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
     user_selection=robust_selection_from_menu("Select the type of inference to run",["Run single round inference","Run multiple round inference"],
                                               return_index = False)
-    path_yml_file= "../SISXA_YML_INPUT_FILES/"
+    path_yml_file= "SISXA_YML_INPUT_FILES/"
     if user_selection == "Run single round inference" :
         yml_files=np.sort(glob.glob(path_yml_file+"*_sri_config_*.yml"))
     elif user_selection == "Run multiple round inference" :

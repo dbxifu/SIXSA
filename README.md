@@ -29,8 +29,7 @@ The demo scripts can be run to reproduce the figures from Barret & Dupourqué (2
 to get a feel of the power of SBI-NPE. Be sure to run this in the `sixsa` environment
 
 ```
-cd SIXSA_CODES
-python run_demo
+python SIXSA_CODES/run_demo
 ```
 In this first release, it is possible to run single round inference and multiple round inference on reference simulated pha files. 
 Only the restricted prior, based on the number of counts in the spectrum to lie within a range specified in the yml files is implemented.
