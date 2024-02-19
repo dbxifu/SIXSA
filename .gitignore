@@ -7,7 +7,7 @@
 # website: http://jupyter.org/
 
 main.py
-
+poetry.lock
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
 *.ipynb
@@ -75,6 +75,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+OLD_CODES/
 
 # Translations
 *.mo
