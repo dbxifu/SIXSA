@@ -7,7 +7,7 @@
 # website: http://jupyter.org/
 
 main.py
-
+poetry.lock
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
 *.ipynb
