@@ -25,7 +25,8 @@ poetry install --no-root
 
 # Run the demo 
 
-The demo scripts can be run to reproduce the figures from Barret & Dupourqué (2024, A&A), 
+
+The demo scripts can be run to reproduce the first figures from Barret & Dupourqué (2024, A&A), 
 to get a feel of the power of SBI-NPE. Be sure to run this in the `sixsa` environment
 
 ```
