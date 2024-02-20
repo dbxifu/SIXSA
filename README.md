@@ -31,6 +31,8 @@ to get a feel of the power of SBI-NPE. Be sure to run this in the `sixsa` enviro
 ```
 python SIXSA_CODES/run_demo
 ```
-In this first release, it is possible to run single round inference and multiple round inference on reference simulated pha files. 
-Only the restricted prior, based on the number of counts in the spectrum to lie within a range specified in the yml files is implemented.
-Output files are generated in PDF format, as to evaluate the different steps of the processing. 
+In this first release, it is possible to run single round inference and multiple round inference on some reference 
+simulated pha files. The run will produce a set of PDF files that are available in SIXSA_OUTPUTS. It will also produce a pickle file 
+that saves the results of the run, that can be uploaded for re-use.
+The inputs for each run is defined in the yaml files provided. You can change the parameters of the yaml files, 
+but beware that reducing the training sample size may introduce erratic behavior.
