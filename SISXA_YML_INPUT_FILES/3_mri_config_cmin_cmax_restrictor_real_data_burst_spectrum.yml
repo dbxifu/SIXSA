@@ -1,0 +1,22 @@
+# Multiple round inference YAML configuration file - Based on Table 1 of Barret & Dupourqué (2024, A&A)
+path_pha: "SIXSA_REFERENCE_SPECTRA/"
+path_outputs : "SIXSA_OUTPUTS/"
+reference_pha : "b_008_0.25s_raw_opt.pha" # b_004 should have about 500 counts instead (a 1 keV line in emission and a ~3 keV line in absorption have been reported by Strohmayer et al.(2018)
+energy_range : [0.3,10.] # energy range for the fit
+jaxspec_model_expression : "Tbabs() * (Powerlaw()+Blackbodyrad())" # see jaxspec documentation
+parameter_lower_bounds : [0.2 , 1.7 , 0.1, 0.1, 0.1]
+parameter_upper_bounds : [0.2 , 1.7 , 10.0, 4.5, 100000.]
+parameter_prior_types : ["Uniform" , "Uniform" , "LogUniform","Uniform","LogUniform"]
+parameter_states : ["frozen" , "frozen" , "free", "free" , "free"]
+parameter_names_for_plots : ["Nh" , "Gamma" , "Npl","kTbb","Nbb"]
+restricted_prior_type : "cmin_cmax_restricted_prior"
+number_of_rounds_for_restricted_prior : 10
+number_of_simulations_for_restricted_prior : 2000
+c_min_for_restricted_prior : 2000. # range to be adapted to the spectrum to fit
+c_max_for_restricted_prior : 6000.
+fraction_of_valid_simulations_to_stop_restricted_prior : 0.95
+type_of_inference : "multiple round inference"
+number_of_simulations_for_train_set : 1000 # quite aggressive for a low statistic spectrum
+number_of_rounds_for_multiple_inference : 5
+number_of_posterior_samples : 20000
+

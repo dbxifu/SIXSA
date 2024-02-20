@@ -13,7 +13,7 @@ from jaxspec.data import ObsConfiguration
 from matplotlib import pyplot as plt
 from sbi import utils
 from sbi.inference import SNPE
-from sbi.utils import RestrictionEstimator
+from sbi.utils import RestrictionEstimator , RestrictedPrior , get_density_thresholder
 from tabulate import tabulate
 
 from sixsa_utils import generate_function_for_cmin_cmax_restrictor , compute_x_sim , compute_cstat , \
@@ -80,6 +80,8 @@ class sisxa_run :
             print(f"Directory '{self.path_outputs}' already exists.")
 
         self.root_output_files = os.path.basename(self.yml_file).replace(".yml" , "_")
+        self.x_obs_reference=None
+
     def read_data_and_init_global_prior( self ):
         print("Read the PHA and initialize the global prior")
         self.pha_filename = self.path_pha + self.reference_pha
@@ -143,8 +145,8 @@ class sisxa_run :
         total_counts = np.sum(obs.folded_counts)
         print(f"Number of bins {num_bins} - Exposure time {obs.exposure:.1f}s - Number of counts {total_counts:.1f}")
 
-        self.x_obs = np.array(obs.folded_counts)
-        self.x_obs_exposure_time = obs.exposure
+        self.x_obs_reference = np.array(obs.folded_counts)
+        self.x_obs_reference_exposure_time = obs.exposure
 
         low_v = torch.as_tensor(self.free_parameter_lower_bounds_transformed)
         high_v = torch.as_tensor(self.free_parameter_upper_bounds_transformed)
@@ -162,7 +164,6 @@ class sisxa_run :
 
             restriction_estimator = RestrictionEstimator(decision_criterion = select_good_x , prior = self.prior)
             restricted_prior_iterated = [self.prior]
-            duration_restricted_prior = 0.
             for r in range(self.number_of_rounds_for_restricted_prior) :
                 print(f"Doing round {r + 1:d}")
                 start_time = time.perf_counter( )
@@ -176,7 +177,7 @@ class sisxa_run :
 
                 end_time = time.perf_counter( )
                 print(f'It took {end_time - start_time: 0.2f} second(s) to complete '
-                      f'{self.number_of_rounds_for_restricted_prior:d} simulations at round {r + 1:d}')
+                      f'{self.number_of_simulations_for_restricted_prior:d} simulations at round {r + 1:d}')
                 matching_x_int = [sub_array for sub_array in x_int.numpy( ) if
                                   self.c_min_for_restricted_prior <= sum(sub_array) <= self.c_max_for_restricted_prior]
                 fraction_matching = len(matching_x_int) / len(x_int)
@@ -207,7 +208,7 @@ class sisxa_run :
 
         elif self.restricted_prior_type == "cstat_restricted_prior":
 
-            generate_restrictor_function_kwargs = {"x_obs" : np.array(self.x_obs) ,
+            generate_restrictor_function_kwargs = {"x_obs" : np.array(self.x_obs_reference) ,
                                                    "good_fraction_in_percent" : self.good_fraction_for_cstat_restricted_prior}
             select_good_x = generate_function_for_cstat_restrictor(**generate_restrictor_function_kwargs)
 
@@ -237,7 +238,7 @@ class sisxa_run :
         elif self.restricted_prior_type =="coarse_inference_restricted_prior" :
             start_time_to_get_the_restricted_prior = time.perf_counter( )
             theta_train = self.prior.sample((self.number_of_simulations_for_restricted_prior ,))
-            print(f"Generating the simulations that will be used for the inference")
+            print(f"Generating the simulations that will be used for the coarse inference")
             start_time = time.perf_counter( )
             x_train = compute_x_sim(self.jaxspec_model_expression , self.parameter_states , theta_train ,
                                     self.pha_filename ,
@@ -263,7 +264,7 @@ class sisxa_run :
             self.duration_restricted_prior = end_time - start_time
             print(f"The whole process took { self.duration_restricted_prior:.1f} seconds.")
 
-            self.restricted_prior = posterior.set_default_x(self.x_obs)
+            self.restricted_prior = posterior.set_default_x(self.x_obs_reference)
 
     def plot_prior_and_restricted_priors( self ):
         # One can compare now the global prior and the restricted prior distributions
@@ -322,7 +323,7 @@ class sisxa_run :
         pdf_filename = self.path_outputs + self.root_output_files + "prior_predictive_check.pdf"
         pdf = matplotlib.backends.backend_pdf.PdfPages(pdf_filename)
         fig , ax = plt.subplots(1 , 1)
-        plt.step(0.5 * (self.e_min_folded + self.e_max_folded) , self.x_obs , where = "mid" , color = "red" , linewidth = 2. , label = "Observed spectrum")
+        plt.step(0.5 * (self.e_min_folded + self.e_max_folded) , self.x_obs_reference , where = "mid" , color = "red" , linewidth = 2. , label = f"Observed spectrum ({np.int32(np.sum(self.x_obs_reference)):d} counts)")
 
         plt.fill_between(0.5 * (self.e_min_folded + self.e_max_folded),
             *np.percentile(self.x_train , [0. , 100] , axis = 0) ,
@@ -412,9 +413,14 @@ class sisxa_run :
             print(f'It took {end_time - start_time: 0.2f} second(s) to run the inference at round {i_n_r + 1:d}')
             self.duration_inference += end_time - start_time
 
-            multiple_round_inference_proposal = posterior_iterated.set_default_x(self.x_obs)
+            multiple_round_inference_proposal = posterior_iterated.set_default_x(self.x_obs_reference)
+
+
+#            accept_reject_fn = get_density_thresholder(multiple_round_inference_proposal , quantile = 1e-4)
+#            multiple_round_inference_proposal = RestrictedPrior(self.prior , accept_reject_fn , sample_with = "rejection")
+
             posterior_samples = posterior_iterated.sample((self.number_of_posterior_samples ,) ,
-                                                 x = torch.as_tensor(np.array(self.x_obs)))
+                                                          x = torch.as_tensor(np.array(self.x_obs_reference)))
 
             median = np.median(posterior_samples , axis = 0)
             lower , upper = np.percentile(posterior_samples , (16 , 84) , axis = 0)
@@ -430,22 +436,22 @@ class sisxa_run :
             # Now computing the cstat of the best fit and its deviation against the expected value
             # From Kaastra(2017) https://ui.adsabs.harvard.edu/abs/2017A%26A...605A..51K/abstract
             #
-            cstat_median_posterior_sample , cstat_dev_median_posterior_sample = compute_cstat(self.x_obs ,
+            cstat_median_posterior_sample , cstat_dev_median_posterior_sample = compute_cstat(self.x_obs_reference ,
                                                                                               np.array(x_from_median) ,
                                                                                               verbose = True)
             print_message(f"\nAt iteration {i_n_r+1} - Best fit parameters\n")
-            print_best_fit_parameters(self.free_parameter_names_for_plots , self.free_parameter_prior_types , median , lower ,
-                                      upper ,
+            print_best_fit_parameters(self.x_obs_reference, self.free_parameter_names_for_plots ,
+                                      self.free_parameter_prior_types , median , lower , upper ,
                                       cstat_median_posterior_sample , cstat_dev_median_posterior_sample)
 
         self.posterior=multiple_round_inference_proposal
 
     def plot_posterior_results_at_x_obs( self ):
         #
-        # Now let us generate the poosterior samples at x_obs
+        # Now let us generate the poosterior samples at x_obs_reference
         #
         posterior_samples = self.posterior.sample((self.number_of_posterior_samples ,) ,
-                                                  x = torch.as_tensor(np.array(self.x_obs)))
+                                                  x = torch.as_tensor(np.array(self.x_obs_reference)))
 
         self.best_fit_parameters = np.median(posterior_samples , axis = 0)
         self.best_fit_parameters_lower_bounds , self.best_fit_parameters_upper_bounds = np.percentile(posterior_samples , (16 , 84) , axis = 0)
@@ -478,11 +484,11 @@ class sisxa_run :
         # Now computing the cstat of the best fit and its deviation against the expected value
         # From Kaastra(2017) https://ui.adsabs.harvard.edu/abs/2017A%26A...605A..51K/abstract
         #
-        self.cstat_median_posterior_sample , self.cstat_dev_median_posterior_sample = compute_cstat(self.x_obs ,
-                                                                                          np.array(x_from_median) ,
-                                                                                          verbose = True)
+        self.cstat_median_posterior_sample , self.cstat_dev_median_posterior_sample = compute_cstat(self.x_obs_reference ,
+                                                                                                    np.array(x_from_median) ,
+                                                                                                    verbose = True)
 
-        print_best_fit_parameters(self.free_parameter_names_for_plots , self.free_parameter_prior_types ,
+        print_best_fit_parameters(self.x_obs_reference, self.free_parameter_names_for_plots , self.free_parameter_prior_types ,
                                   self.best_fit_parameters , self.best_fit_parameters_lower_bounds ,
                                   self.best_fit_parameters_upper_bounds ,
                                   self.cstat_median_posterior_sample , self.cstat_dev_median_posterior_sample)
@@ -490,11 +496,11 @@ class sisxa_run :
         #
         # Computing the residuals for the plot (assuming Gehrels errors)
         #
-        gehrels_error_counts = (1. + (0.75 + np.array(self.x_obs)) ** 0.5)
-        best_fit_residuals = (np.array(self.x_obs) - np.array(x_from_median)) / np.array(gehrels_error_counts)
+        gehrels_error_counts = (1. + (0.75 + np.array(self.x_obs_reference)) ** 0.5)
+        best_fit_residuals = (np.array(self.x_obs_reference) - np.array(x_from_median)) / np.array(gehrels_error_counts)
 
         #
-        # Now I compute x corresponding to the posterior samples at x_obs
+        # Now I compute x corresponding to the posterior samples at x_obs_reference
         #
         x_from_posterior_sample = compute_x_sim(self.jaxspec_model_expression , self.parameter_states , posterior_samples ,
                                                 self.pha_filename ,
@@ -531,7 +537,7 @@ class sisxa_run :
         pdf.close( )
 
         #
-        # Plot the folded spectrum and the 68% percentile from the posterior samples at x_obs
+        # Plot the folded spectrum and the 68% percentile from the posterior samples at x_obs_reference
         #
 
         pdf_filename = self.path_outputs + self.root_output_files + "reference_spectrum_and_folded_model.pdf"
@@ -541,7 +547,7 @@ class sisxa_run :
         plt.subplots_adjust(hspace = 0.0)
 
         # Plotting the data, best fit, and coverage
-        ax[0].step(0.5 * (self.e_min_folded + self.e_max_folded) , self.x_obs , where = "mid" , label = "Observed spectrum " ,
+        ax[0].step(0.5 * (self.e_min_folded + self.e_max_folded) , self.x_obs_reference , where = "mid" , label = f"Observed spectrum ({np.int32(np.sum(self.x_obs_reference)):d} counts)" ,
                    color = "black")
         ax[0].step(0.5 * (self.e_min_folded + self.e_max_folded) , x_from_median.flatten( ) , where = "mid" ,
                    label = f"Best fit ({self.cstat_median_posterior_sample :0.1f}, {self.cstat_dev_median_posterior_sample :0.1f}$\sigma$)" ,
@@ -605,7 +611,7 @@ class sisxa_run :
 
         # Do some checks on the test sample : generate the posterior samples at all x_test, compute the median and compare
         # its median to the known theta_test - Generate a plot
-        # If you had multiple observations, you could generate the posterior samples at those x_obs
+        # If you had multiple observations, you could generate the posterior samples at your x_obs read from a list of pha files;
         #
 
         posterior_samples_at_x_test = []
@@ -647,7 +653,7 @@ class sisxa_run :
 
         # Create a frame around the table and print it
         print(tabulate(table_data , headers = ["Task Duration Summary" , "Seconds"] , tablefmt = "fancy_grid"))
-        print_best_fit_parameters(self.free_parameter_names_for_plots , self.free_parameter_prior_types ,
+        print_best_fit_parameters(self.x_obs_reference, self.free_parameter_names_for_plots , self.free_parameter_prior_types ,
                                   self.best_fit_parameters , self.best_fit_parameters_lower_bounds , self.best_fit_parameters_upper_bounds ,
                                   self.cstat_median_posterior_sample , self.cstat_dev_median_posterior_sample)
 
