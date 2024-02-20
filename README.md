@@ -36,7 +36,8 @@ simulated pha files. The run will produce a set of PDF files that are available 
 round inference, the code will generate the posteriors for a set of 500 spectra. The code will also produce a pickle file 
 that saves the results of the run, that can be uploaded for re-use.
 The inputs for each run is defined in the yaml files provided (SIXSA_YML_INPUT_FILES). You can change the parameters of the input files, 
-but beware that reducing too much the training sample size may introduce erratic behavior. 
+but beware that reducing too much the training sample size may introduce erratic behavior. There is always a 
+gain in training the network with sufficient samples.
 Remember that there are random realizations involved and therefore the results from one run to the other can differ 
 (still within errors). 
 
