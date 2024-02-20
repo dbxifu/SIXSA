@@ -164,7 +164,7 @@ def compute_x_sim( jaxspec_model_expression , parameter_states , thetas , pha_fi
 
         end_time = time.perf_counter( )
         duration_time = end_time - start_time
-        print(f"Run duration_time {duration_time:.1f} seconds for {len(thetas)} samples")
+        print(f"It took just {duration_time:.1f} seconds for jax.jit to generate {len(thetas)} simulations")
     #    return torch.as_tensor(np.array(x).astype(np.float32))
     else :
         print("One single theta simulated -> parallelization with JAX not required")
