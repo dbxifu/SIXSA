@@ -25,14 +25,17 @@ poetry install --no-root
 
 # Run the demo 
 
-The demo scripts can be run to reproduce the figures from Barret & Dupourqué (2024, A&A), 
+The demo scripts can be run to reproduce figures from Barret & Dupourqué (2024, A&A, in press), 
 to get a feel of the power of SBI-NPE. Be sure to run this in the `sixsa` environment
 
 ```
 python SIXSA_CODES/run_demo
 ```
 In this first release, it is possible to run single round inference and multiple round inference on some reference 
-simulated pha files. The run will produce a set of PDF files that are available in SIXSA_OUTPUTS. It will also produce a pickle file 
+simulated pha files. The run will produce a set of PDF files that are available in SIXSA_OUTPUTS. In running single 
+round inference, the code will generate the posteriors for a set of 500 spectra. The code will also produce a pickle file 
 that saves the results of the run, that can be uploaded for re-use.
 The inputs for each run is defined in the yaml files provided. You can change the parameters of the yaml files, 
-but beware that reducing the training sample size may introduce erratic behavior.
+but beware that reducing too much the training sample size may introduce erratic behavior. 
+Remember that there are random realizations involved and therefore the results from one run to the other can differ 
+(still within errors). The run time
