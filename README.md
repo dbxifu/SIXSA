@@ -1,5 +1,5 @@
 # SIXSA
-Simulation based Inference for X-ray Spectral Analysis package from Barret & Dupourqué (2024). This repository contains example scripts for reproducing some of the results of the paper, and allows interested users to test this approach on their own data.
+Simulation based Inference for X-ray Spectral Analysis package from [Barret & Dupourqué (2024, Astronomy and Astrophysics, in press](https://ui.adsabs.harvard.edu/abs/2024arXiv240106061B/abstract)). This repository contains example scripts for reproducing some of the results of the paper, and allows interested users to test this approach on their own data.
 
 # Install 
 We recommend the users to start from a fresh Python 3.10 [conda environment](https://conda.io/projects/conda/en/latest/user-guide/install/index.html). 
