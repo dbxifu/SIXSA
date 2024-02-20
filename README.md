@@ -1,6 +1,6 @@
 # SIXSA
 Simulation based Inference for X-ray Spectral Analysis package from [Barret & Dupourqué (2024, Astronomy and Astrophysics, in press](https://ui.adsabs.harvard.edu/abs/2024arXiv240106061B/abstract)). This repository contains example scripts for reproducing some of the results of the paper, and allows interested users to test this approach on their own data.
-The core of the python scripts are build upon the [sbi](https://sbi-dev.github.io/sbi/) python package.
+The core of the python scripts are build upon the [sbi](https://sbi-dev.github.io/sbi/) python package. The simulations are performed with an early release of [jaxspec](https://jaxspec.readthedocs.io/en/latest/) (Dupourqué et al., A&A, in preparation).
 # Install 
 We recommend the users to start from a fresh Python 3.10 [conda environment](https://conda.io/projects/conda/en/latest/user-guide/install/index.html). 
 
@@ -38,4 +38,7 @@ that saves the results of the run, that can be uploaded for re-use.
 The inputs for each run is defined in the yaml files provided (SIXSA_YML_INPUT_FILES). You can change the parameters of the input files, 
 but beware that reducing too much the training sample size may introduce erratic behavior. 
 Remember that there are random realizations involved and therefore the results from one run to the other can differ 
-(still within errors). The run time can also differ from one round to the other (say within a few tens of seconds).
+(still within errors). 
+
+The run times can also differ from one round to the other, but stay reasonably similar. 
+Note that time listed in the paper have been obtained by running the code on a 2.9 GHz 6-Core Intel Core i9 MacBook Pro.

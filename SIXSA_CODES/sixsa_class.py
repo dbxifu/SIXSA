@@ -1,8 +1,8 @@
 import os
-import dill as pickle
 import time
 
 import click
+import dill as pickle
 import matplotlib
 import numpy as np
 import pandas as pd
@@ -13,7 +13,7 @@ from jaxspec.data import ObsConfiguration
 from matplotlib import pyplot as plt
 from sbi import utils
 from sbi.inference import SNPE
-from sbi.utils import RestrictionEstimator , get_density_thresholder , RestrictedPrior
+from sbi.utils import RestrictionEstimator
 from tabulate import tabulate
 
 from sixsa_utils import generate_function_for_cmin_cmax_restrictor , compute_x_sim , compute_cstat , \
@@ -21,7 +21,7 @@ from sixsa_utils import generate_function_for_cmin_cmax_restrictor , compute_x_s
 
 
 class sisxa_run :
-    "This is where I define all the parameters used for running sixa."
+    "This is where I define all the parameters used for running sixsa."
     creator = "Didier Barret"
     date = "2024-01-19"
 
@@ -370,9 +370,9 @@ class sisxa_run :
 
         multiple_round_inference_proposal = self.prior
         inference = SNPE(prior = self.prior)
-        duration_generation_theta_x = 0.
-        duration_multiple_round_inference = 0.
-        truncated_prior_proposal = True
+        self.duration_generation_theta_x = 0.
+        self.duration_inference = 0.
+
         for i_n_r in range(self.number_of_rounds_for_multiple_inference) :
             if i_n_r == 0 :
                 # get the first sample from the restricted prior
@@ -388,7 +388,7 @@ class sisxa_run :
                 print(
                     f'It took {end_time - start_time: 0.2f} second(s) to complete {self.number_of_simulations_for_train_set :d} '
                     f'simulations to be used for the inference ')
-                duration_generation_theta_x += end_time - start_time
+                self.duration_generation_theta_x += end_time - start_time
             else :
                 theta_train = multiple_round_inference_proposal.sample((self.number_of_simulations_for_train_set,))
                 print(f"Generating the simulations that will be used for the inference at round {i_n_r + 1}")
@@ -402,7 +402,7 @@ class sisxa_run :
                 print(
                     f'It took {end_time - start_time: 0.2f} second(s) to complete {self.number_of_simulations_for_train_set :d} '
                     f'simulations to be used for the inference ')
-                duration_generation_theta_x += end_time - start_time
+                self.duration_generation_theta_x += end_time - start_time
             start_time = time.perf_counter( )
             density_estimator = inference.append_simulations(theta_train ,
                                                              torch.tensor(np.array(x_train).astype(np.float32)) ,
@@ -410,7 +410,7 @@ class sisxa_run :
             posterior_iterated = inference.build_posterior(density_estimator)
             end_time = time.perf_counter( )
             print(f'It took {end_time - start_time: 0.2f} second(s) to run the inference at round {i_n_r + 1:d}')
-            duration_multiple_round_inference += end_time - start_time
+            self.duration_inference += end_time - start_time
 
             multiple_round_inference_proposal = posterior_iterated.set_default_x(self.x_obs)
             posterior_samples = posterior_iterated.sample((self.number_of_posterior_samples ,) ,
@@ -640,7 +640,7 @@ class sisxa_run :
         elif self.type_of_inference =="multiple round inference" :
             table_data = [
                 ("Restricted prior " , f"{self.duration_restricted_prior:.2f}") ,
-                (f"Generation of {self.number_of_simulations_per_round_for_train_set*self.number_of_rounds_for_multiple_inference} x_train" ,
+                (f"Generation of {self.number_of_simulations_for_train_set*self.number_of_rounds_for_multiple_inference} x_train" ,
                     f"{self.duration_generation_theta_x:.2f}") ,
                 ("Inference " , f"{self.duration_inference:.2f}")
             ]
