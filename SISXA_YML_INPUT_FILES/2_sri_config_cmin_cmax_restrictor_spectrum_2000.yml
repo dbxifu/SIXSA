@@ -1,4 +1,10 @@
-# Single round inference YAML configuration file - Based on Table 1 of Barret & Dupourqué (2024, A&A)
+#================================================================================================================
+# Single round inference YAML configuration file - Based on Table 1 of Barret & Dupourqué (2024, A&A) (model 1)
+# This yaml file shows the use of a restrictor based on the number of counts in the spectrum to be between 1000 and 10000
+# coupled with single round inference. The reference spectrum has 2000 counts, with a constant grouping of 5
+# consecutive channels, so that the spectrum ends up with 200 bins or so.
+# D. Barret 21/02/2024
+#================================================================================================================
 path_pha: "SIXSA_REFERENCE_SPECTRA/"
 path_outputs : "SIXSA_OUTPUTS/"
 reference_pha : "Reference_pha_tbabs_powerlaw_2000counts_groupconstant_5.pha"

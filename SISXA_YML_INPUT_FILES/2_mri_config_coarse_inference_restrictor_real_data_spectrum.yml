@@ -1,4 +1,10 @@
-# Multiple round inference YAML configuration file - Based on Table 1 of Barret & Dupourqué (2024, A&A)
+#================================================================================================================
+# Multiple round inference YAML configuration file - Based on Table 1 of Barret & Dupourqué (2024, A&A) (model 2)
+# This yaml file shows the use of a coarse inference restrictor coupled with multiple round inference.
+# The model has 5 parameters, so the training sample cannot be too limited, but with 5 parameters, we show that good
+# results are obtained with 5 rounds of 1000 samples each.
+# D. Barret 21/02/2024
+#================================================================================================================
 path_pha: "SIXSA_REFERENCE_SPECTRA/"
 path_outputs : "SIXSA_OUTPUTS/"
 reference_pha : "pre_burst_spectrum_opt.pha"

@@ -1,4 +1,10 @@
-# Single round inference YAML configuration file - Based on Table 1 of Barret & Dupourqué (2024, A&A)
+#================================================================================================================
+# Single round inference YAML configuration file - Based on Table 1 of Barret & Dupourqué (2024, A&A) model 3
+# Inference on real data (3000 counts, burst emission), by the combination of a restricted prior derived from a
+# coarse inference coupled with single round inference. This is a 3 parameter model but with a rather low statistic
+# spectrum, so the training sample cannot be too limited.
+# D. Barret 21/02/2024
+#================================================================================================================
 path_pha: "SIXSA_REFERENCE_SPECTRA/"
 path_outputs : "SIXSA_OUTPUTS/"
 reference_pha : "b_008_0.25s_raw_opt.pha"

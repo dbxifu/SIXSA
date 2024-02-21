@@ -1,4 +1,9 @@
-# Multiple round inference YAML configuration file - Based on Table 1 of Barret & Dupourqué (2024, A&A)
+#================================================================================================================
+# Multiple round inference YAML configuration file - Based on Table 1 of Barret & Dupourqué (2024, A&A). The reference
+# spectrum contains a bit more than 2000 counts, to explore the Poisson regime. The grouping is constant and the
+# number of bins is about 200.
+# D. Barret 21/02/2024
+#================================================================================================================
 path_pha: "SIXSA_REFERENCE_SPECTRA/"
 path_outputs : "SIXSA_OUTPUTS/"
 reference_pha : "Reference_pha_tbabs_powerlaw_2000counts_groupconstant_5.pha"

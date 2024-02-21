@@ -1,10 +1,15 @@
-# Multiple round inference YAML configuration file - Based on Table 1 of Barret & Dupourqué (2024, A&A)
+#================================================================================================================
+# Multiple round inference YAML configuration file - Based on Table 1 of Barret & Dupourqué (2024, A&A) - model 3
+# The restricted prior is derived from the condition that the spectrum has between 100 and 600 counts. The spectrum
+# is optimally binned, and has about 100 bins. No background considered. The spectrum has about 3000 counts.
+# D. Barret 21/02/2024
+#================================================================================================================
 path_pha: "SIXSA_REFERENCE_SPECTRA/"
 path_outputs : "SIXSA_OUTPUTS/"
 reference_pha : "b_008_0.25s_raw_opt.pha" # (a 1 keV line in emission and a ~3 keV line in absorption have been reported by Strohmayer et al.(2018)
 energy_range : [0.3,10.] # energy range for the fit
 jaxspec_model_expression : "Tbabs() * (Powerlaw()+Blackbodyrad())" # see jaxspec documentation
-parameter_lower_bounds : [0.2 , 1.7 , 0.1, 0.1, 0.1]
+parameter_lower_bounds : [0.2 , 1.7 , 0.1, 0.1, 0.1] # values from the paper
 parameter_upper_bounds : [0.2 , 1.7 , 10.0, 4.5, 100000.]
 parameter_prior_types : ["Uniform" , "Uniform" , "LogUniform","Uniform","LogUniform"]
 parameter_states : ["frozen" , "frozen" , "free", "free" , "free"]
