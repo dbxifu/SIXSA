@@ -13,7 +13,7 @@ Once the environment is set up, create a new directory and clone this GitHub rep
 
 ```
 git clone https://github.com/dbxifu/SIXSA
-cd sixsa
+cd SIXSA
 ```
 
 Now, you can install the required dependencies using `poetry`
