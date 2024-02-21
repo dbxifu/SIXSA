@@ -25,7 +25,7 @@ poetry install --no-root
 
 # Run the demo 
 
-The demo scripts can be run to reproduce figures from [Barret & Dupourqué (2024, A&A, in press)](https://ui.adsabs.harvard.edu/abs/2024arXiv240106061B/abstract), to get a feel of the power of SBI-NPE. Be sure to run this in the `sixsa` environment
+The demo scripts can be run to reproduce figures from [Barret & Dupourqué (2024, A&A, in press)](https://ui.adsabs.harvard.edu/abs/2024arXiv240106061B/abstract), to get a feel of the power of SBI-NPE. Be sure to run this in the `sixsa` environment. Use `conda activate sixsa` before running the code.
 
 ```
 python SIXSA_CODES/run_demo.py
