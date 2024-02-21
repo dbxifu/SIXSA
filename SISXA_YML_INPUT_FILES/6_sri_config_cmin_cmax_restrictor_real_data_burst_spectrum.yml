@@ -22,6 +22,6 @@ c_min_for_restricted_prior : 100.
 c_max_for_restricted_prior : 10000.
 fraction_of_valid_simulations_to_stop_restricted_prior : 0.95
 type_of_inference : "single round inference"
-number_of_simulations_for_train_set : 20000 # Not conservative (the training set was larger in the paper)
+number_of_simulations_for_train_set : 20000 # Rather aggressive (the training set was larger in the paper)
 number_of_simulations_for_test_set : 100
 number_of_posterior_samples : 20000
