@@ -28,7 +28,7 @@ poetry install --no-root
 The demo scripts can be run to reproduce figures from [Barret & Dupourqué (2024, A&A, in press)](https://ui.adsabs.harvard.edu/abs/2024arXiv240106061B/abstract), to get a feel of the power of SBI-NPE. Be sure to run this in the `sixsa` environment
 
 ```
-python SIXSA_CODES/run_demo
+python SIXSA_CODES/run_demo.py
 ```
 In this first release, it is possible to run single round inference and multiple round inference on some reference 
 simulated pha files. The run will produce a set of PDF files that are available in SIXSA_OUTPUTS. In running single 
