@@ -1,7 +1,14 @@
+#
 # Multiple round inference YAML configuration file - Based on Table 1 of Barret & Dupourqué (2024, A&A)
+# This one highlights the use of the restrictor based on the cstat. This is not the most efficient way
+# to restrict the priors, but shows how to implement an arbitrary function to do so. For real data, the restrictor
+# obtained from a quick and coarse inference is working very well.
+# The spectrum is modeled by the sum of an absorbed power law and blackbody. Alternative models may fit the data better
+# but at the time of the writing of the paper, those models were not available in jaxspec.
+#
 path_pha: "SIXSA_REFERENCE_SPECTRA/"
 path_outputs : "SIXSA_OUTPUTS/"
-reference_pha : "pre_burst_spectrum_opt.pha"
+reference_pha : "pre_burst_spectrum_opt.pha" # Real data persistent pre-burst emission (see paper)
 energy_range : [0.3,10.] # energy range for the fit
 jaxspec_model_expression : "Tbabs() * (Powerlaw()+Blackbodyrad())" # see jaxspec documentation
 parameter_lower_bounds : [0.15 , 1.0 , 0.1, 0.3,100.]
