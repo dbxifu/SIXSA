@@ -1,0 +1,17 @@
+# Single round inference YAML configuration file - Based on Table 1 of Barret & Dupourqué (2024, A&A)
+path_pha: "SIXSA_REFERENCE_SPECTRA/"
+path_outputs : "SIXSA_OUTPUTS/"
+reference_pha : "pre_burst_spectrum_opt.pha"
+energy_range : [0.3,10.] # energy range for the fit
+jaxspec_model_expression : "Tbabs() * (Powerlaw()+Blackbodyrad())" # jaxspec formalism
+parameter_lower_bounds : [0.15 , 1.0 , 0.1, 0.3,100.]
+parameter_upper_bounds : [0.35 , 3.0 , 3.0, 3.0,1000.]
+parameter_prior_types : ["Uniform" , "Uniform" , "Uniform","Uniform","Uniform"] # Uniform or LogUniform
+parameter_states : ["free" , "free" , "free", "free" , "free"] # free or frozen
+parameter_names_for_plots : ["Nh" , "Gamma" , "Npl","kTbb","Nbb"] # for display purposes
+restricted_prior_type : "coarse_inference_restricted_prior"
+number_of_simulations_for_restricted_prior : 5000
+type_of_inference : "single round inference"
+number_of_simulations_for_train_set : 50000
+number_of_simulations_for_test_set : 100
+number_of_posterior_samples : 20000

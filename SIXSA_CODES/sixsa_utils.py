@@ -31,7 +31,7 @@ def goodbye_message():
           "\nWe hope you enjoyed it.\nNow you can customize it for your application."
           "\nKeep us posted (dbarret@irap.omp.eu, sdupourque@irap.omp.eu). Thanks !\n\n\n")
 # Utility to print the best bit parameters in a tabulated form.
-def print_best_fit_parameters(free_parameter_names,free_parameter_prior_types,median,lower,upper,cstat,cstat_dev):
+def print_best_fit_parameters(x_obs,free_parameter_names,free_parameter_prior_types,median,lower,upper,cstat,cstat_dev):
 
     # Apply transformation for "loguniform" prior types without copy
     median = torch.as_tensor(np.where(np.array(free_parameter_prior_types) == "loguniform" , 10. ** median , median))
@@ -47,7 +47,7 @@ def print_best_fit_parameters(free_parameter_names,free_parameter_prior_types,me
 
     # Print the table
     print(tabulate(table_data, tablefmt = "fancy_grid"))
-    print_message(f"These are the best fit results\nBest fit c-stat={cstat:.3f} - c-stat deviation={cstat_dev:.3f}")
+    print_message(f"These are the best fit results\nBest fit c-stat={cstat:.3f} ({len(x_obs)-len(free_parameter_names):d} d.o.f) - c-stat deviation={cstat_dev:.3f}")
 
 #=======================================================================================================================
 # generate_function_for_cmin_cmax_restrictor: this is the function that is needed for the restricted prior, derived from
@@ -94,12 +94,11 @@ def generate_function_for_cstat_restrictor( x_obs = [] , good_fraction_in_percen
     return get_good_x
 
 def generate_cstat_good_fraction_restrictor_function(x_o=[],good_fraction_in_percent=10.) :
-#    print(x_o,dof,cstat_thresh)
+
     def get_good_x(x):
         cstat_array=[]
         for x_p in x :
             cstat_array.append(compute_cstat(x_o , x_p.numpy( ) , with_cstat_dev = False , verbose = False))
-#            print(x_o[0:10],x_p.numpy()[0:10])
         cstat_array_sorted=np.sort(cstat_array)
         index_corresponding_to_good_fraction=np.int32(len(x)*good_fraction_in_percent/100.)
         print(f"cstat less than {cstat_array_sorted[index_corresponding_to_good_fraction]:0.1f} has {good_fraction_in_percent:0.1f} \% of spectra at index {index_corresponding_to_good_fraction:d} - median {np.median(cstat_array):0.1f} - min {np.min(cstat_array):0.1f}")
@@ -165,7 +164,7 @@ def compute_x_sim( jaxspec_model_expression , parameter_states , thetas , pha_fi
 
         end_time = time.perf_counter( )
         duration_time = end_time - start_time
-        print(f"Run duration_time {duration_time:.1f} seconds for {len(thetas)} samples")
+        print(f"It took just {duration_time:.1f} seconds for jax.jit to generate {len(thetas)} simulations")
     #    return torch.as_tensor(np.array(x).astype(np.float32))
     else :
         print("One single theta simulated -> parallelization with JAX not required")

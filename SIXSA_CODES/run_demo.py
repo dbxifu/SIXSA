@@ -36,7 +36,7 @@ if __name__ == '__main__' :
     demo_run=sisxa_run(yml_files[index_yml_file_selected-1])
     print_message("\nReading data\n")
     demo_run.read_data_and_init_global_prior()
-    print_message("\nComputing the restricted prior\n")
+    print_message(f"\nComputing the restricted prior : {demo_run.restricted_prior_type} \n")
     demo_run.compute_restricted_prior()
     demo_run.set_plot_layout()
     print_message("\nPlotting the restricted prior\n")
@@ -48,7 +48,7 @@ if __name__ == '__main__' :
         demo_run.run_single_round_inference_snpe( )
     elif user_selection == "Run multiple round inference" :
         demo_run.run_multiple_round_inference_snpe( )
-    print_message("\nPlotting the posteriors at x_obs\n")
+    print_message("\nPlotting the posteriors at x_obs_reference\n")
     demo_run.plot_posterior_results_at_x_obs()
     if user_selection == "Run single round inference" :
         print_message("\nPlotting the posteriors at x_test\n")
