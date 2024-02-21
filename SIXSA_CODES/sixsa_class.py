@@ -415,7 +415,6 @@ class sisxa_run :
 
             multiple_round_inference_proposal = posterior_iterated.set_default_x(self.x_obs_reference)
 
-
 #            accept_reject_fn = get_density_thresholder(multiple_round_inference_proposal , quantile = 1e-4)
 #            multiple_round_inference_proposal = RestrictedPrior(self.prior , accept_reject_fn , sample_with = "rejection")
 

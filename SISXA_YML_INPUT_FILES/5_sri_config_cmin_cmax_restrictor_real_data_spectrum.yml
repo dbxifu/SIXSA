@@ -1,4 +1,4 @@
-# Multiple round inference YAML configuration file - Based on Table 1 of Barret & Dupourqué (2024, A&A)
+# Single round inference YAML configuration file - Based on Table 1 of Barret & Dupourqué (2024, A&A)
 path_pha: "SIXSA_REFERENCE_SPECTRA/"
 path_outputs : "SIXSA_OUTPUTS/"
 reference_pha : "pre_burst_spectrum_opt.pha"
