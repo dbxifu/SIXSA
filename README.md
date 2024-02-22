@@ -1,5 +1,5 @@
 # SIXSA
-Simulation based Inference for X-ray Spectral Analysis package from [Barret & Dupourqué (2024, Astronomy and Astrophysics, in press](https://ui.adsabs.harvard.edu/abs/2024arXiv240106061B/abstract)). This repository contains example scripts for reproducing some of the results of the paper, and allows interested users to test this approach on their own data.
+Simulation based Inference for X-ray Spectral Analysis package from [Barret & Dupourqué (2024, Astronomy and Astrophysics, in press](https://arxiv.org/pdf/2401.06061.pdf)). This repository contains example scripts for reproducing some of the results of the paper, and allows interested users to test this approach on their own data.
 The core of the python scripts are build upon the [sbi](https://sbi-dev.github.io/sbi/) python package. The simulations are performed with an early release of [jaxspec](https://jaxspec.readthedocs.io/en/latest/) (Dupourqué et al., A&A, in preparation).
 # Install 
 We recommend the users to start from a fresh Python 3.10 [conda environment](https://conda.io/projects/conda/en/latest/user-guide/install/index.html). 
@@ -25,7 +25,7 @@ poetry install --no-root
 
 # Run the demo 
 
-The demo scripts can be run to reproduce figures from [Barret & Dupourqué (2024, A&A, in press)](https://ui.adsabs.harvard.edu/abs/2024arXiv240106061B/abstract), to get a feel of the power of SBI-NPE. Be sure to run this in the `sixsa` environment. Use `conda activate sixsa` before running the code.
+The demo scripts can be run to reproduce figures from [Barret & Dupourqué (2024, A&A, in press)](https://arxiv.org/pdf/2401.06061.pdf), to get a feel of the power of SBI-NPE. Be sure to run this in the `sixsa` environment. Use `conda activate sixsa` before running the code.
 
 ```
 python SIXSA_CODES/run_demo.py
