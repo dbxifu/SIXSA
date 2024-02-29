@@ -260,50 +260,154 @@ def compute_cstat( data_in: object , model_in: object , with_cstat_dev=True, ver
 # This function plots the SIXSA inferred model parameters versus the input model parameters and compute some correlation
 # coefficient which should be closed to 1.
 def plot_theta_in_theta_out( theta_test , posterior_samples_at_x_test , model_parameter_names , pdf_filename ) :
+
+    # update of the code to better handle the fits
+
+    import numpy as np
+    import matplotlib.pyplot as plt
+    errors_upper = [];
+    errors_lower = [];
+    fitted_parameters = []
     pdf = matplotlib.backends.backend_pdf.PdfPages(pdf_filename)
-    median_array = [];
-    median_em_array = [];
-    median_ep_array = [];
-    median_error_array = []
+
     for i_t in range(len(theta_test)) :
         median = np.median(posterior_samples_at_x_test[i_t] , axis = 0)
         lower , upper = np.percentile(posterior_samples_at_x_test[i_t] , (16 , 84) , axis = 0)
-        median_array.append(median);
-        median_em_array.append(median - lower);
-        median_ep_array.append(upper - median)
+        fitted_parameters.append(median)
+        errors_lower.append(median - lower)
+        errors_upper.append(upper - median)
 
-        median_error_array.append(np.sqrt((median - lower) ** 2 + (upper - median) ** 2))
+    degree = 1
 
-    fig , axs = plt.subplots(len(model_parameter_names) , 1 , figsize = (10 , 12))
     for iplot in range(len(model_parameter_names)) :
-        xtp = [xtp[iplot] for xtp in theta_test]
-        ytp = [ytp[iplot] for ytp in median_array]
-        y_err = [1. / val[iplot] for val in median_error_array]
-        xtp = np.array(xtp).reshape(-1 , 1);
-        ytp = np.array(ytp).reshape(-1 , 1)
-        reg = LinearRegression( ).fit(np.array(xtp) , np.array(ytp) , sample_weight = np.array(y_err))
-        R_2 = reg.score(np.array(xtp) , np.array(ytp) , sample_weight = np.array(y_err))
-        wls = sm.WLS(np.array(ytp) , np.array(xtp) , weights = np.array(y_err))
-        wls_result = wls.fit( )
-        axs[iplot].margins(x = 0.1)
-        axs[iplot].margins(y = 0.1)
-        axs[iplot].set_xlabel("SRI " + model_parameter_names[iplot] + " in")
-        axs[iplot].set_ylabel("SRI " + model_parameter_names[iplot] + " out")
-        xtp = [xtp[iplot] for xtp in theta_test]
-        ytp = [ytp[iplot] for ytp in median_array]
-        axs[iplot].plot([np.min(xtp) , np.max(xtp)] ,
-                        [wls_result.params[0] * np.min(xtp) , wls_result.params[0] * np.max(xtp)] , "--" ,
-                        color = "green" , linewidth = 2. ,
-                        label = f"Linear fit : a={wls_result.params[0]:0.4f} ($\pm$ {np.abs(wls_result.params[0] - np.array(wls_result.conf_int(alpha = 0.1))[0][0]):0.4f})")
-        axs[iplot].errorbar(xtp , ytp ,
-                            yerr = [[ytp[iplot] for ytp in median_em_array] , [ytp[iplot] for ytp in median_ep_array]] ,
-                            fmt = 'o' , color = "red" , ms = 4 , mec = 'k' , ecolor = "k" , label = "Posterior median")
+        xtp = np.array([val[iplot] for val in theta_test])
+        ytp = np.array([val[iplot] for val in fitted_parameters])
+        em_ytp = np.array([val[iplot] for val in errors_lower])
+        ep_ytp = np.array([val[iplot] for val in errors_upper])
 
-        axs[iplot].legend(frameon = False)
-    fig.align_ylabels( )
-    pdf.savefig(fig)
-    matplotlib.pyplot.close( )
+        # Calculate RMS of errors
+        errors_rms = np.sqrt((em_ytp ** 2 + ep_ytp ** 2) / 2)
+
+        # I am considering two ways of performing the linear regression - First way
+        # Fit with LinearRegression
+        model = LinearRegression(fit_intercept = False)
+        model.fit(xtp.reshape(-1 , 1) , ytp , sample_weight = 1 / errors_rms ** 2)
+
+        # Calculate the expected values (predicted values) using LinearRegression
+        expected_values_linear_reg = model.predict(xtp.reshape(-1 , 1))
+
+        # Calculate the residuals
+        residuals_linear_reg = ytp - expected_values_linear_reg
+
+        # Compute chi-square
+        chi_square_linear_reg = np.sum((residuals_linear_reg / errors_rms) ** 2)
+
+        # Express residuals in terms of sigma
+        sigma_residuals_linear_reg = residuals_linear_reg / errors_rms
+        print_message("Linear regression with sklearn.linear_model.LinearRegression")
+        print(f'Linear Regression Coefficients with sklearn.linear_model.LinearRegression: {model.coef_}')
+        print(f'Linear Regression Chi-square with sklearn.linear_model.LinearRegression: {chi_square_linear_reg:.4f}')
+        print( )
+
+        print_message("Linear regression with statsmodels.api.WLS (intercept frozen at 0)")
+        # I am considering two ways of performing the linear regression - second way
+        # Create a linear regression model with the intercept fixed to zero
+        model = sm.WLS(ytp , xtp , weights = 1 / errors_rms ** 2 , hasconst = False)
+
+        # Fit the model
+        results = model.fit( )
+        print(results.summary( ))
+        # Get the predicted values
+        predicted_values = results.fittedvalues
+        # Access the 95% confidence interval for each coefficient
+        confidence_interval = results.conf_int(alpha = 0.05)
+        # Extract lower and upper bounds
+        lower_bounds = confidence_interval[: , 0]
+        upper_bounds = confidence_interval[: , 1]
+
+        # Calculate positive and negative errors
+        positive_errors = upper_bounds - results.params
+        negative_errors = results.params - lower_bounds
+
+        residuals = ytp - predicted_values
+
+        # Calculate the chi-square value using regular residuals
+        chi_square = np.sum((residuals / errors_rms) ** 2)
+
+        # Degrees of freedom
+        df = len(xtp) - results.df_model
+
+        # Print the chi-square value and degrees of freedom
+        print(f"statsmodels.api.WLS Chi-Square: {chi_square:.2f}, Degrees of Freedom: {df}")
+
+        # Create two vertically stacked subplots with reduced vertical space
+        fig , (ax1 , ax2) = plt.subplots(2 , 1 , sharex = True , gridspec_kw = {'height_ratios' : [3 , 1]})
+
+        # Adjust the vertical space between subplots
+        plt.subplots_adjust(hspace = 0)
+
+        # Plot the original data with error bars in the top subplot
+        ax1.errorbar(xtp , ytp , yerr = errors_rms , fmt = 'o' , color = "red" , ms = 4 , mec = 'k')
+        ax1.margins(x = 0.1)
+        ax1.margins(y = 0.1)
+        # Plot the fitted line in the top subplot
+        ax1.plot(xtp , results.predict(xtp) , color = 'black' , label = 'Linear regression')
+
+        # Confidence interval using get_prediction
+        pred = results.get_prediction( )
+        confidence_interval = pred.conf_int(alpha = 0.005)
+        # Plot the uncertainty region for the fitted line (shaded)
+        ci_low , ci_high = confidence_interval.T
+
+        sorted_indices = np.argsort(xtp)
+        xtp_sorted = xtp[sorted_indices]
+        ci_low_sorted = ci_low[sorted_indices]
+        ci_high_sorted = ci_high[sorted_indices]
+
+        # Plot the uncertainty region for the fitted line (shaded)
+        ax1.fill_between(xtp_sorted , ci_low_sorted , ci_high_sorted , color = 'gray' , alpha = 0.3 ,
+                         label = '95\% Confidence Interval')
+
+        # Get the slope and its standard error
+        slope = results.params[0]
+        slope_error = results.bse[0]
+        # Plot the ground truth line (without errors)
+        ax1.plot([min(xtp) , max(xtp)] , [min(xtp) , max(xtp)] , linestyle = '--' , color = 'green' ,
+                 label = 'Ground truth Line')
+
+        # Annotate chi-square, degrees of freedom, slope, and slope error on the top subplot
+        ax1.set_title(
+            f'Linear coefficient = {slope:.3f} $\pm$ {np.mean([positive_errors[0] , negative_errors[0]]):.4f} \n$\chi^2$={chi_square:.1f} ({np.int32(df):d} d.o.f) ')
+
+        ax1.set_ylabel('Fitted Parameters (' + model_parameter_names[iplot] + ")")
+        ax1.legend( )
+
+        # Plot the residuals in the bottom subplot
+        ax2.errorbar(xtp , residuals / errors_rms , yerr = np.ones(len(xtp)) , fmt = 'o' , color = "red" , ms = 4 ,
+                     mec = 'k')
+
+        ax2.axhline(0 , color = 'black' , linestyle = '--' , linewidth = 1)  # Add horizontal line at y=0
+
+        ax2.set_xlabel('Ground Truth (' + model_parameter_names[iplot] + ")")
+        ax2.set_ylabel('Residuals ($\sigma$)')
+        fig.align_ylabels( )
+        pdf.savefig(fig)
+        matplotlib.pyplot.close( )
+
+        print_message("For checking : Linear regression with statsmodels.api.WLS (intercept left as a free parameter )")
+        # I am considering two ways of performing the linear regression - second way
+        # Create a linear regression model with the intercept fixed to zero
+        xtp = sm.add_constant(xtp)
+        model = sm.WLS(ytp , xtp , weights = 1 / errors_rms ** 2 , hasconst = True)
+
+        # Fit the model
+        results = model.fit( )
+        print(results.summary( ))
+
+    #        input("Press to continue")
+
     pdf.close( )
+
 
 # Utility to robustly select an option from a menu
 def robust_selection_from_menu(title, menu, return_index=True):
