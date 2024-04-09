@@ -16,6 +16,7 @@ torch = "^2.1.1"
 jax = {extras = ["cpu"], version = "^0.4.21"}
 ppretty = "^1.3"
 jaxspec = "^0.0.2"
+scipy = "<1.13"
 
 
 [[tool.poetry.source]]
