@@ -15,7 +15,7 @@ from sbi import utils
 from sbi.inference import SNPE
 from sbi.utils import RestrictionEstimator , RestrictedPrior , get_density_thresholder
 from tabulate import tabulate
-
+from sixsa_utils import summary_statistics_func
 from sixsa_utils import generate_function_for_cmin_cmax_restrictor , compute_x_sim , compute_cstat , \
     print_best_fit_parameters , plot_theta_in_theta_out , generate_function_for_cstat_restrictor , print_message
 
@@ -81,6 +81,7 @@ class sisxa_run :
 
         self.root_output_files = os.path.basename(self.yml_file).replace(".yml" , "_")
         self.x_obs_reference=None
+        self.use_summary=self.config.get("use_summary_statistics", False)
 
     def read_data_and_init_global_prior( self ):
         print("Read the PHA and initialize the global prior")
@@ -144,8 +145,21 @@ class sisxa_run :
         num_bins = len(obs.folded_counts)
         total_counts = np.sum(obs.folded_counts)
         print(f"Number of bins {num_bins} - Exposure time {obs.exposure:.1f}s - Number of counts {total_counts:.1f}")
-
         self.x_obs_reference = np.array(obs.folded_counts)
+
+        if self.use_summary:
+
+            counts = np.array(obs.folded_counts)
+            energy_ref = np.hstack([obs.out_energies[0], obs.out_energies[1][-1]])
+            energy_grid = np.linspace(energy_ref.min(), energy_ref.max(), 10)
+
+            def summary_func(x):
+                return summary_statistics_func(x, energy_grid=energy_grid, energy_ref=energy_ref)
+
+            self.summary_func = summary_func
+            self.x_obs_summary = self.summary_func(counts)[0].squeeze()
+
+
         self.x_obs_reference_exposure_time = obs.exposure
 
         low_v = torch.as_tensor(self.free_parameter_lower_bounds_transformed)
@@ -358,6 +372,9 @@ class sisxa_run :
         proposal = self.prior
         inference = SNPE(prior = self.prior)
 
+        if self.use_summary:
+            raise NotImplementedError('Summary statistics are not implemented for single round inference.')
+
         start_time = time.perf_counter( )
         density_estimator = inference.append_simulations(self.theta_train ,
                                                          torch.tensor(np.array(self.x_train).astype(np.float32)) ,
@@ -404,6 +421,16 @@ class sisxa_run :
                     f'It took {end_time - start_time: 0.2f} second(s) to complete {self.number_of_simulations_for_train_set :d} '
                     f'simulations to be used for the inference ')
                 self.duration_generation_theta_x += end_time - start_time
+
+            if self.use_summary:
+                # Apply the summary statistics function to x_train
+                start_time = time.perf_counter()
+                x_train, _ = self.summary_func(np.asarray(x_train))
+                x_train = torch.tensor(x_train.astype(np.float32))
+                end_time = time.perf_counter()
+                print(
+                    f'It took {end_time - start_time: 0.2f} second(s) to compute the associated summary statistics')
+
             start_time = time.perf_counter( )
             density_estimator = inference.append_simulations(theta_train ,
                                                              torch.tensor(np.array(x_train).astype(np.float32)) ,
@@ -413,12 +440,18 @@ class sisxa_run :
             print(f'It took {end_time - start_time: 0.2f} second(s) to run the inference at round {i_n_r + 1:d}')
             self.duration_inference += end_time - start_time
 
-            multiple_round_inference_proposal = posterior_iterated.set_default_x(self.x_obs_reference)
+            if self.use_summary:
+                multiple_round_inference_proposal = posterior_iterated.set_default_x(self.x_obs_summary)
+            else:
+                multiple_round_inference_proposal = posterior_iterated.set_default_x(self.x_obs_reference)
 
 #            accept_reject_fn = get_density_thresholder(multiple_round_inference_proposal , quantile = 1e-4)
 #            multiple_round_inference_proposal = RestrictedPrior(self.prior , accept_reject_fn , sample_with = "rejection")
-
-            posterior_samples = posterior_iterated.sample((self.number_of_posterior_samples ,) ,
+            if self.use_summary:
+                posterior_samples = posterior_iterated.sample((self.number_of_posterior_samples ,) ,
+                                                          x = torch.as_tensor(np.array(self.x_obs_summary)))
+            else:
+                posterior_samples = posterior_iterated.sample((self.number_of_posterior_samples ,) ,
                                                           x = torch.as_tensor(np.array(self.x_obs_reference)))
 
             median = np.median(posterior_samples , axis = 0)
@@ -449,7 +482,12 @@ class sisxa_run :
         #
         # Now let us generate the poosterior samples at x_obs_reference
         #
-        posterior_samples = self.posterior.sample((self.number_of_posterior_samples ,) ,
+
+        if self.use_summary:
+            posterior_samples = self.posterior.sample((self.number_of_posterior_samples ,) ,
+                                                  x = torch.as_tensor(np.array(self.x_obs_summary)))
+        else:
+            posterior_samples = self.posterior.sample((self.number_of_posterior_samples ,) ,
                                                   x = torch.as_tensor(np.array(self.x_obs_reference)))
 
         self.best_fit_parameters = np.median(posterior_samples , axis = 0)
